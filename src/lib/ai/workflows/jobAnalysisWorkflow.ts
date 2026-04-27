@@ -4,6 +4,7 @@ import { applicationTrackerAgent } from "@/lib/ai/agents/applicationTrackerAgent
 import { atsKeywordAgent } from "@/lib/ai/agents/atsKeywordAgent";
 import { coverLetterAgent } from "@/lib/ai/agents/coverLetterAgent";
 import { jobParserAgent } from "@/lib/ai/agents/jobParserAgent";
+import { qualityReviewAgent } from "@/lib/ai/agents/qualityReviewAgent";
 import { resumeMatcherAgent } from "@/lib/ai/agents/resumeMatcherAgent";
 import { generateAnalysisWithLlm } from "@/lib/ai/llmClient";
 
@@ -68,6 +69,16 @@ export async function runJobAnalysisWorkflow(input: JobIntakeInput): Promise<Ana
     ...matcher,
     coverLetter
   };
+
+  const qualityReview = qualityReviewAgent(normalizedInput, analysis);
+  traces.push(
+    createAgentTrace("Quality Review Agent", "Review final analysis for consistency, grounding, and cover-letter quality.", {
+      qualityScore: qualityReview.qualityScore,
+      passed: qualityReview.passed,
+      warnings: qualityReview.warnings,
+      checks: qualityReview.checks
+    })
+  );
 
   const persistence = await applicationTrackerAgent(normalizedInput, analysis);
   traces.push(
