@@ -19,12 +19,14 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
     resumeText: sampleResume
   });
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function submitForm(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
     setError(null);
+    setErrorDetails(null);
 
     const response = await fetch("/api/analyse-job", {
       method: "POST",
@@ -37,6 +39,7 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
 
     if (!response.ok) {
       setError(payload.error || "Unable to analyse this job.");
+      setErrorDetails(payload.details || null);
       return;
     }
 
@@ -98,7 +101,12 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
           />
         </label>
       </div>
-      {error ? <p className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
+      {error ? (
+        <div className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <p>{error}</p>
+          {errorDetails ? <p className="mt-1 text-xs text-rose-600">{errorDetails}</p> : null}
+        </div>
+      ) : null}
       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-500">Mock mode is used automatically when no LLM key exists.</p>
         <button

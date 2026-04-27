@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { toUserFacingLlmError } from "@/lib/ai/analysisValidator";
 import { runJobAnalysisWorkflow } from "@/lib/ai/workflows/jobAnalysisWorkflow";
 import type { JobIntakeInput } from "@/lib/db/types";
 
@@ -15,7 +16,10 @@ export async function POST(request: Request) {
     return NextResponse.json(response);
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to analyse job" },
+      {
+        error: toUserFacingLlmError(error),
+        details: process.env.NODE_ENV === "development" && error instanceof Error ? error.message : undefined
+      },
       { status: 500 }
     );
   }

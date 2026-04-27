@@ -1,4 +1,5 @@
 import type { JobAnalysis, JobIntakeInput } from "@/lib/db/types";
+import { normalizeAnalysis } from "@/lib/ai/analysisValidator";
 import { buildJobAnalysisPrompt, SYSTEM_PROMPT } from "@/lib/ai/prompts";
 
 type LlmResult = {
@@ -146,7 +147,7 @@ async function callAnthropic({
     ? payload.content.find((part: { type?: string; text?: string }) => part.type === "text")?.text
     : null;
 
-  return parseAnalysisJson(text);
+  return normalizeAnalysis(text);
 }
 
 async function callOpenAiCompatible({
@@ -182,7 +183,7 @@ async function callOpenAiCompatible({
   }
 
   const payload = await response.json();
-  return parseAnalysisJson(payload.choices?.[0]?.message?.content);
+  return normalizeAnalysis(payload.choices?.[0]?.message?.content);
 }
 
 async function callOllama({
@@ -214,34 +215,7 @@ async function callOllama({
   }
 
   const payload = await response.json();
-  return parseAnalysisJson(payload.message?.content);
-}
-
-function parseAnalysisJson(raw: unknown): JobAnalysis {
-  if (typeof raw !== "string") {
-    throw new Error("LLM response did not include text content.");
-  }
-
-  const parsed = JSON.parse(raw) as Partial<JobAnalysis>;
-  return {
-    summary: String(parsed.summary || ""),
-    requiredSkills: asStringArray(parsed.requiredSkills),
-    matchScore: clampScore(Number(parsed.matchScore || 0)),
-    missingKeywords: asStringArray(parsed.missingKeywords),
-    strengths: asStringArray(parsed.strengths),
-    gaps: asStringArray(parsed.gaps),
-    suggestedBullets: asStringArray(parsed.suggestedBullets),
-    coverLetter: String(parsed.coverLetter || "")
-  };
-}
-
-function asStringArray(value: unknown) {
-  return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
-}
-
-function clampScore(score: number) {
-  if (Number.isNaN(score)) return 0;
-  return Math.max(0, Math.min(100, Math.round(score)));
+  return normalizeAnalysis(payload.message?.content);
 }
 
 export function createMockAnalysis(input: JobIntakeInput): JobAnalysis {
