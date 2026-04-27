@@ -3,14 +3,17 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { AnalysisResult } from "@/components/job/AnalysisResult";
 import { ApplicationActions } from "@/components/job/ApplicationActions";
+import { ApplicationNotes } from "@/components/job/ApplicationNotes";
 import { ApplicationStatusBadge } from "@/components/job/ApplicationStatusBadge";
+import { StatusHistory } from "@/components/job/StatusHistory";
 import { StatusSelect } from "@/components/job/StatusSelect";
-import { getApplication } from "@/lib/db/applications";
+import { getApplication, listApplicationStatusHistory } from "@/lib/db/applications";
 import { formatApplicationDateTime } from "@/lib/format/date";
 
 export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const application = await getApplication(id);
+  const history = await listApplicationStatusHistory(id);
 
   if (!application) {
     notFound();
@@ -49,6 +52,11 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           </div>
         </div>
       </section>
+
+      <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
+        <ApplicationNotes applicationId={application.id} initialNotes={application.notes || ""} />
+        <StatusHistory history={history} />
+      </div>
 
       <AnalysisResult
         analysis={{

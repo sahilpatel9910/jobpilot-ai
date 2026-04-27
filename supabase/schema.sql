@@ -17,6 +17,7 @@ create table if not exists public.applications (
   missing_keywords jsonb not null default '[]'::jsonb,
   suggested_bullets jsonb not null default '[]'::jsonb,
   cover_letter text,
+  notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -45,6 +46,9 @@ alter table if exists public.applications
   add constraint applications_status_check
   check (status in ('Saved', 'Analysed', 'Applied', 'Interview', 'Rejected', 'Offer', 'Archived'));
 
+alter table if exists public.applications
+  add column if not exists notes text;
+
 create table if not exists public.profile_settings (
   id text primary key default 'default',
   resume_text text not null,
@@ -57,6 +61,20 @@ create trigger set_profile_settings_updated_at
 before update on public.profile_settings
 for each row
 execute function public.set_updated_at();
+
+create table if not exists public.application_status_history (
+  id uuid primary key default gen_random_uuid(),
+  application_id uuid not null references public.applications(id) on delete cascade,
+  from_status text
+    check (from_status is null or from_status in ('Saved', 'Analysed', 'Applied', 'Interview', 'Rejected', 'Offer', 'Archived')),
+  to_status text not null
+    check (to_status in ('Saved', 'Analysed', 'Applied', 'Interview', 'Rejected', 'Offer', 'Archived')),
+  note text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists application_status_history_application_id_idx
+  on public.application_status_history(application_id, created_at desc);
 
 -- MVP note:
 -- Keep RLS disabled while there is no authentication layer, or add server-only

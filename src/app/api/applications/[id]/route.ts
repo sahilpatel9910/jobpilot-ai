@@ -30,6 +30,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const supabase = createSupabaseServerClient();
+  const { data: existing, error: existingError } = await supabase
+    .from("applications")
+    .select("status")
+    .eq("id", id)
+    .single();
+
+  if (existingError) {
+    return NextResponse.json({ error: existingError.message }, { status: 404 });
+  }
+
   const { data, error } = await supabase
     .from("applications")
     .update({ status: body.status as ApplicationStatus })
@@ -39,6 +49,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (existing.status !== body.status) {
+    await supabase.from("application_status_history").insert({
+      application_id: id,
+      from_status: existing.status,
+      to_status: body.status as ApplicationStatus
+    });
   }
 
   return NextResponse.json({ application: data });

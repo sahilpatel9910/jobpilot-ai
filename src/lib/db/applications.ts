@@ -1,4 +1,4 @@
-import type { ApplicationRecord } from "@/lib/db/types";
+import type { ApplicationRecord, ApplicationStatusHistoryRecord } from "@/lib/db/types";
 import { createSupabaseServerClient, hasSupabaseServerConfig } from "@/lib/supabase/server";
 
 export async function listApplications(): Promise<ApplicationRecord[]> {
@@ -19,4 +19,18 @@ export async function getApplication(id: string): Promise<ApplicationRecord | nu
 
   if (error) return null;
   return data as ApplicationRecord;
+}
+
+export async function listApplicationStatusHistory(id: string): Promise<ApplicationStatusHistoryRecord[]> {
+  if (!hasSupabaseServerConfig()) return [];
+
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("application_status_history")
+    .select("*")
+    .eq("application_id", id)
+    .order("created_at", { ascending: false });
+
+  if (error) return [];
+  return data as ApplicationStatusHistoryRecord[];
 }

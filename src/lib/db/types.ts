@@ -45,6 +45,7 @@ export type ApplicationRecord = {
   missing_keywords: string[];
   suggested_bullets: string[];
   cover_letter: string | null;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -54,6 +55,15 @@ export type ProfileSettingsRecord = {
   resume_text: string;
   created_at: string;
   updated_at: string;
+};
+
+export type ApplicationStatusHistoryRecord = {
+  id: string;
+  application_id: string;
+  from_status: ApplicationStatus | null;
+  to_status: ApplicationStatus;
+  note: string | null;
+  created_at: string;
 };
 
 export type AnalyseJobResponse = {
