@@ -1,4 +1,4 @@
-import type { ApplicationRecord, ApplicationStatusHistoryRecord } from "@/lib/db/types";
+import type { AgentRunRecord, ApplicationRecord, ApplicationStatusHistoryRecord } from "@/lib/db/types";
 import { createSupabaseServerClient, hasSupabaseServerConfig } from "@/lib/supabase/server";
 
 export async function listApplications(): Promise<ApplicationRecord[]> {
@@ -33,4 +33,18 @@ export async function listApplicationStatusHistory(id: string): Promise<Applicat
 
   if (error) return [];
   return data as ApplicationStatusHistoryRecord[];
+}
+
+export async function listAgentRuns(id: string): Promise<AgentRunRecord[]> {
+  if (!hasSupabaseServerConfig()) return [];
+
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("agent_runs")
+    .select("*")
+    .eq("application_id", id)
+    .order("started_at", { ascending: true });
+
+  if (error) return [];
+  return data as AgentRunRecord[];
 }

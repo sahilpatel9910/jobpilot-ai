@@ -76,6 +76,21 @@ create table if not exists public.application_status_history (
 create index if not exists application_status_history_application_id_idx
   on public.application_status_history(application_id, created_at desc);
 
+create table if not exists public.agent_runs (
+  id uuid primary key default gen_random_uuid(),
+  application_id uuid not null references public.applications(id) on delete cascade,
+  agent_name text not null,
+  input_summary text,
+  output jsonb not null default '{}'::jsonb,
+  status text not null default 'completed'
+    check (status in ('completed', 'failed')),
+  started_at timestamptz not null default now(),
+  completed_at timestamptz
+);
+
+create index if not exists agent_runs_application_id_idx
+  on public.agent_runs(application_id, started_at asc);
+
 -- MVP note:
 -- Keep RLS disabled while there is no authentication layer, or add server-only
 -- policies before exposing direct client reads. API routes use the service role key.

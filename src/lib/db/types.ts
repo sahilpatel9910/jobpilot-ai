@@ -66,6 +66,19 @@ export type ApplicationStatusHistoryRecord = {
   created_at: string;
 };
 
+export type AgentRunStatus = "completed" | "failed";
+
+export type AgentRunRecord = {
+  id: string;
+  application_id: string;
+  agent_name: string;
+  input_summary: string | null;
+  output: Record<string, unknown>;
+  status: AgentRunStatus;
+  started_at: string;
+  completed_at: string | null;
+};
+
 export type AnalyseJobResponse = {
   application: ApplicationRecord | null;
   analysis: JobAnalysis;

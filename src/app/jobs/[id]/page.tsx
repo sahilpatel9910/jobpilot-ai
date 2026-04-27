@@ -2,18 +2,20 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { AnalysisResult } from "@/components/job/AnalysisResult";
+import { AgentTrace } from "@/components/job/AgentTrace";
 import { ApplicationActions } from "@/components/job/ApplicationActions";
 import { ApplicationNotes } from "@/components/job/ApplicationNotes";
 import { ApplicationStatusBadge } from "@/components/job/ApplicationStatusBadge";
 import { StatusHistory } from "@/components/job/StatusHistory";
 import { StatusSelect } from "@/components/job/StatusSelect";
-import { getApplication, listApplicationStatusHistory } from "@/lib/db/applications";
+import { getApplication, listAgentRuns, listApplicationStatusHistory } from "@/lib/db/applications";
 import { formatApplicationDateTime } from "@/lib/format/date";
 
 export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const application = await getApplication(id);
   const history = await listApplicationStatusHistory(id);
+  const agentRuns = await listAgentRuns(id);
 
   if (!application) {
     notFound();
@@ -57,6 +59,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         <ApplicationNotes applicationId={application.id} initialNotes={application.notes || ""} />
         <StatusHistory history={history} />
       </div>
+
+      <AgentTrace agentRuns={agentRuns} />
 
       <AnalysisResult
         analysis={{

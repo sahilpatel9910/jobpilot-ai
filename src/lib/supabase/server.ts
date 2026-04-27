@@ -3,6 +3,8 @@ import type {
   ApplicationRecord,
   ApplicationStatus,
   ApplicationStatusHistoryRecord,
+  AgentRunRecord,
+  AgentRunStatus,
   ProfileSettingsRecord
 } from "@/lib/db/types";
 
@@ -40,6 +42,16 @@ type ApplicationStatusHistoryInsert = {
   note?: string | null;
 };
 
+type AgentRunInsert = {
+  application_id: string;
+  agent_name: string;
+  input_summary?: string | null;
+  output: Record<string, unknown>;
+  status: AgentRunStatus;
+  started_at?: string;
+  completed_at?: string | null;
+};
+
 type Database = {
   public: {
     Tables: {
@@ -59,6 +71,12 @@ type Database = {
         Row: ApplicationStatusHistoryRecord;
         Insert: ApplicationStatusHistoryInsert;
         Update: Partial<ApplicationStatusHistoryInsert>;
+        Relationships: [];
+      };
+      agent_runs: {
+        Row: AgentRunRecord;
+        Insert: AgentRunInsert;
+        Update: Partial<AgentRunInsert>;
         Relationships: [];
       };
     };

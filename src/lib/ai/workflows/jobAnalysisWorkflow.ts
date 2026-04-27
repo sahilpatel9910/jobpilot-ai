@@ -1,4 +1,5 @@
 import type { AnalyseJobResponse, JobAnalysis, JobIntakeInput } from "@/lib/db/types";
+import { createAgentTrace, persistAgentTrace } from "@/lib/ai/agentTrace";
 import { applicationTrackerAgent } from "@/lib/ai/agents/applicationTrackerAgent";
 import { atsKeywordAgent } from "@/lib/ai/agents/atsKeywordAgent";
 import { coverLetterAgent } from "@/lib/ai/agents/coverLetterAgent";
@@ -8,6 +9,15 @@ import { generateAnalysisWithLlm } from "@/lib/ai/llmClient";
 
 export async function runJobAnalysisWorkflow(input: JobIntakeInput): Promise<AnalyseJobResponse> {
   const parsedJob = jobParserAgent(input);
+  const traces = [
+    createAgentTrace("Job Parser Agent", "Normalize company, title, and seniority signal from job intake.", {
+      normalizedCompanyName: parsedJob.normalizedCompanyName,
+      normalizedJobTitle: parsedJob.normalizedJobTitle,
+      descriptionWordCount: parsedJob.descriptionWordCount,
+      detectedSeniority: parsedJob.detectedSeniority
+    })
+  ];
+
   const normalizedInput = {
     ...input,
     companyName: parsedJob.normalizedCompanyName,
@@ -15,12 +25,42 @@ export async function runJobAnalysisWorkflow(input: JobIntakeInput): Promise<Ana
   };
 
   const { analysis: baseAnalysis, mode, provider } = await generateAnalysisWithLlm(normalizedInput);
+  traces.push(
+    createAgentTrace("LLM Analysis Provider", "Generate base structured job/resume analysis.", {
+      mode,
+      provider,
+      matchScore: baseAnalysis.matchScore,
+      requiredSkillsCount: baseAnalysis.requiredSkills.length,
+      missingKeywordsCount: baseAnalysis.missingKeywords.length
+    })
+  );
 
   // Agent workflow decision point: each step owns one concern so LangGraph nodes
   // can replace these direct function calls later without changing UI contracts.
   const ats = atsKeywordAgent(normalizedInput, baseAnalysis);
+  traces.push(
+    createAgentTrace("ATS Keyword Agent", "Extract required skills and missing ATS keywords.", {
+      requiredSkills: ats.requiredSkills,
+      missingKeywords: ats.missingKeywords
+    })
+  );
+
   const matcher = resumeMatcherAgent(normalizedInput, baseAnalysis);
+  traces.push(
+    createAgentTrace("Resume Matcher Agent", "Score resume fit and identify strengths, gaps, and bullet improvements.", {
+      matchScore: matcher.matchScore,
+      strengthsCount: matcher.strengths.length,
+      gapsCount: matcher.gaps.length,
+      suggestedBulletsCount: matcher.suggestedBullets.length
+    })
+  );
+
   const coverLetter = coverLetterAgent(baseAnalysis);
+  traces.push(
+    createAgentTrace("Cover Letter Agent", "Normalize final tailored cover letter output.", {
+      wordCount: coverLetter.split(/\s+/).filter(Boolean).length
+    })
+  );
 
   const analysis: JobAnalysis = {
     ...baseAnalysis,
@@ -30,6 +70,16 @@ export async function runJobAnalysisWorkflow(input: JobIntakeInput): Promise<Ana
   };
 
   const persistence = await applicationTrackerAgent(normalizedInput, analysis);
+  traces.push(
+    createAgentTrace("Application Tracker Agent", "Persist application and analysis result to Supabase.", {
+      persistence: persistence.persistence,
+      applicationId: persistence.application?.id || null
+    })
+  );
+
+  if (persistence.application) {
+    await persistAgentTrace(persistence.application.id, traces);
+  }
 
   return {
     analysis,
