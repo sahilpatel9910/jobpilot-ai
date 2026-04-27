@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import type { ApplicationRecord, ApplicationStatus } from "@/lib/db/types";
+import type { ApplicationRecord, ApplicationStatus, ProfileSettingsRecord } from "@/lib/db/types";
 
 type ApplicationInsert = {
   company_name: string;
@@ -20,6 +20,13 @@ type ApplicationInsert = {
 
 type ApplicationUpdate = Partial<ApplicationInsert>;
 
+type ProfileSettingsInsert = {
+  id?: string;
+  resume_text: string;
+};
+
+type ProfileSettingsUpdate = Partial<ProfileSettingsInsert>;
+
 type Database = {
   public: {
     Tables: {
@@ -27,6 +34,12 @@ type Database = {
         Row: ApplicationRecord;
         Insert: ApplicationInsert;
         Update: ApplicationUpdate;
+        Relationships: [];
+      };
+      profile_settings: {
+        Row: ProfileSettingsRecord;
+        Insert: ProfileSettingsInsert;
+        Update: ProfileSettingsUpdate;
         Relationships: [];
       };
     };

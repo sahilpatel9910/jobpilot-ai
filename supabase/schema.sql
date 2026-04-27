@@ -8,7 +8,7 @@ create table if not exists public.applications (
   job_description text not null,
   resume_text text not null,
   status text not null default 'Saved'
-    check (status in ('Saved', 'Analysed', 'Applied', 'Interview', 'Rejected', 'Offer')),
+    check (status in ('Saved', 'Analysed', 'Applied', 'Interview', 'Rejected', 'Offer', 'Archived')),
   match_score integer check (match_score between 0 and 100),
   summary text,
   required_skills jsonb not null default '[]'::jsonb,
@@ -35,6 +35,26 @@ $$ language plpgsql;
 drop trigger if exists set_applications_updated_at on public.applications;
 create trigger set_applications_updated_at
 before update on public.applications
+for each row
+execute function public.set_updated_at();
+
+alter table if exists public.applications
+  drop constraint if exists applications_status_check;
+
+alter table if exists public.applications
+  add constraint applications_status_check
+  check (status in ('Saved', 'Analysed', 'Applied', 'Interview', 'Rejected', 'Offer', 'Archived'));
+
+create table if not exists public.profile_settings (
+  id text primary key default 'default',
+  resume_text text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists set_profile_settings_updated_at on public.profile_settings;
+create trigger set_profile_settings_updated_at
+before update on public.profile_settings
 for each row
 execute function public.set_updated_at();
 

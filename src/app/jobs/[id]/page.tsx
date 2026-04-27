@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { AnalysisResult } from "@/components/job/AnalysisResult";
+import { ApplicationActions } from "@/components/job/ApplicationActions";
 import { ApplicationStatusBadge } from "@/components/job/ApplicationStatusBadge";
 import { StatusSelect } from "@/components/job/StatusSelect";
 import { getApplication } from "@/lib/db/applications";
@@ -42,7 +43,10 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
               </a>
             ) : null}
           </div>
-          <StatusSelect applicationId={application.id} status={application.status} />
+          <div className="space-y-3">
+            <StatusSelect applicationId={application.id} status={application.status} />
+            <ApplicationActions applicationId={application.id} />
+          </div>
         </div>
       </section>
 

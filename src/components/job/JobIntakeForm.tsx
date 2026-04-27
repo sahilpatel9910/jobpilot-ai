@@ -1,11 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import type { AnalyseJobResponse, JobIntakeInput } from "@/lib/db/types";
-
-const sampleResume =
-  "Full-stack developer with experience building React, Next.js, TypeScript and Supabase applications. Delivered SaaS dashboards, API routes, database schemas, and AI-powered workflows with clear documentation and measurable project outcomes.";
 
 const sampleJob =
   "We are looking for a full-stack engineer to build modern product features using React, Next.js, TypeScript, APIs, SQL databases, and AI-assisted workflows. The role requires strong communication, ownership, testing practices, and experience shipping maintainable customer-facing software.";
@@ -16,17 +13,57 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
     jobTitle: "Full Stack AI Engineer",
     jobUrl: "",
     jobDescription: sampleJob,
-    resumeText: sampleResume
+    resumeText: ""
   });
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [savedResumeText, setSavedResumeText] = useState("");
+  const [resumeStatus, setResumeStatus] = useState<"loading" | "empty" | "loaded" | "saving" | "saved" | "failed">(
+    "loading"
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadResume() {
+      try {
+        const response = await fetch("/api/profile/resume");
+        const payload = (await response.json()) as { resumeText?: string };
+        const resumeText = payload.resumeText || "";
+
+        if (!isMounted) return;
+
+        if (resumeText) {
+          setSavedResumeText(resumeText);
+          setForm((current) => ({ ...current, resumeText }));
+          setResumeStatus("loaded");
+        } else {
+          setResumeStatus("empty");
+        }
+      } catch {
+        if (isMounted) setResumeStatus("failed");
+      }
+    }
+
+    loadResume();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   async function submitForm(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
     setError(null);
     setErrorDetails(null);
+
+    const saveResumeResponse = await saveResumeIfChanged();
+    if (!saveResumeResponse) {
+      setIsSubmitting(false);
+      return;
+    }
 
     const response = await fetch("/api/analyse-job", {
       method: "POST",
@@ -44,6 +81,30 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
     }
 
     onResult(payload as AnalyseJobResponse);
+  }
+
+  async function saveResumeIfChanged() {
+    const resumeText = form.resumeText.trim();
+    if (resumeText === savedResumeText.trim()) return true;
+
+    setResumeStatus("saving");
+
+    const response = await fetch("/api/profile/resume", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resumeText })
+    });
+
+    const payload = await response.json();
+    if (!response.ok) {
+      setError(payload.error || "Unable to save resume text.");
+      setResumeStatus("failed");
+      return false;
+    }
+
+    setSavedResumeText(resumeText);
+    setResumeStatus("saved");
+    return true;
   }
 
   function updateField(field: keyof JobIntakeInput, value: string) {
@@ -92,10 +153,26 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
           />
         </label>
         <label className="space-y-2">
-          <span className="text-sm font-medium">Resume text</span>
+          <span className="flex items-center justify-between gap-3 text-sm font-medium">
+            Resume text
+            <span className="text-xs font-normal text-slate-500">
+              {resumeStatus === "loading"
+                ? "Checking saved resume"
+                : resumeStatus === "empty"
+                  ? "Saved on first analysis"
+                  : resumeStatus === "saving"
+                    ? "Saving resume"
+                    : resumeStatus === "saved"
+                      ? "Resume saved"
+                      : resumeStatus === "loaded"
+                        ? "Loaded saved resume"
+                        : "Resume save unavailable"}
+            </span>
+          </span>
           <textarea
             value={form.resumeText}
             onChange={(event) => updateField("resumeText", event.target.value)}
+            placeholder="Paste your resume text here. JobPilot saves it after the first analysis and reuses it until you replace it."
             className="min-h-72 w-full resize-y rounded-lg border border-slateLine px-3 py-2.5 outline-none transition focus:border-pilot-500 focus:ring-2 focus:ring-pilot-100"
             required
           />

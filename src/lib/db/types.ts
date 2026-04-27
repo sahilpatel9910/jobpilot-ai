@@ -4,7 +4,8 @@ export const APPLICATION_STATUSES = [
   "Applied",
   "Interview",
   "Rejected",
-  "Offer"
+  "Offer",
+  "Archived"
 ] as const;
 
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
@@ -44,6 +45,13 @@ export type ApplicationRecord = {
   missing_keywords: string[];
   suggested_bullets: string[];
   cover_letter: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProfileSettingsRecord = {
+  id: string;
+  resume_text: string;
   created_at: string;
   updated_at: string;
 };

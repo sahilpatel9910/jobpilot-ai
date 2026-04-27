@@ -43,3 +43,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   return NextResponse.json({ application: data });
 }
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!hasSupabaseServerConfig()) {
+    return NextResponse.json({ error: "Supabase is not configured." }, { status: 400 });
+  }
+
+  const { id } = await params;
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("applications").delete().eq("id", id);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ deleted: true });
+}
