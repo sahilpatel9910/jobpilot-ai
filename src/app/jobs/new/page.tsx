@@ -24,6 +24,12 @@ export default function NewJobPage() {
           <div className="rounded-lg border border-slateLine bg-white px-4 py-3 text-sm text-slate-600">
             AI mode: <span className="font-semibold text-ink">{result.mode}</span> · Persistence:{" "}
             <span className="font-semibold text-ink">{result.persistence}</span>
+            {result.llmProvider ? (
+              <>
+                {" "}
+                · Provider: <span className="font-semibold text-ink">{result.llmProvider}</span>
+              </>
+            ) : null}
             {result.persistenceError ? <span className="text-rose-700"> · {result.persistenceError}</span> : null}
           </div>
           <AnalysisResult analysis={result.analysis} />

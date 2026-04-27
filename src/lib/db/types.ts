@@ -52,6 +52,7 @@ export type AnalyseJobResponse = {
   application: ApplicationRecord | null;
   analysis: JobAnalysis;
   mode: "mock" | "llm";
+  llmProvider?: string;
   persistence: "saved" | "skipped" | "failed";
   persistenceError?: string;
 };

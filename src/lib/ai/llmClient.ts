@@ -4,51 +4,149 @@ import { buildJobAnalysisPrompt, SYSTEM_PROMPT } from "@/lib/ai/prompts";
 type LlmResult = {
   analysis: JobAnalysis;
   mode: "mock" | "llm";
+  provider: LlmProviderName | "mock";
 };
 
+type LlmProviderName = "anthropic" | "openai" | "groq" | "ollama";
+
+const PROVIDER_ORDER: LlmProviderName[] = ["anthropic", "openai", "groq", "ollama"];
+
 export function hasLlmConfig() {
-  return Boolean(process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY || process.env.OLLAMA_BASE_URL);
+  return getConfiguredProviders().length > 0;
 }
 
 export async function generateAnalysisWithLlm(input: JobIntakeInput): Promise<LlmResult> {
   if (!hasLlmConfig()) {
-    return { analysis: createMockAnalysis(input), mode: "mock" };
+    return { analysis: createMockAnalysis(input), mode: "mock", provider: "mock" };
   }
 
   const prompt = buildJobAnalysisPrompt(input);
+  const providers = getProvidersToTry();
+  const errors: string[] = [];
 
-  if (process.env.OPENAI_API_KEY) {
-    return {
-      analysis: await callOpenAiCompatible({
-        baseUrl: "https://api.openai.com/v1/chat/completions",
-        apiKey: process.env.OPENAI_API_KEY,
-        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-        prompt
-      }),
-      mode: "llm"
-    };
+  for (const provider of providers) {
+    try {
+      return {
+        analysis: await callProvider(provider, prompt),
+        mode: "llm",
+        provider
+      };
+    } catch (error) {
+      errors.push(`${provider}: ${error instanceof Error ? error.message : "unknown error"}`);
+    }
   }
 
-  if (process.env.GROQ_API_KEY) {
-    return {
-      analysis: await callOpenAiCompatible({
-        baseUrl: "https://api.groq.com/openai/v1/chat/completions",
-        apiKey: process.env.GROQ_API_KEY,
-        model: process.env.GROQ_MODEL || "llama-3.1-70b-versatile",
-        prompt
-      }),
-      mode: "llm"
-    };
+  throw new Error(`All configured LLM providers failed. ${errors.join(" | ")}`);
+}
+
+function getConfiguredProviders() {
+  return PROVIDER_ORDER.filter((provider) => {
+    if (provider === "anthropic") return Boolean(process.env.ANTHROPIC_API_KEY);
+    if (provider === "openai") return Boolean(process.env.OPENAI_API_KEY);
+    if (provider === "groq") return Boolean(process.env.GROQ_API_KEY);
+    return Boolean(process.env.OLLAMA_BASE_URL);
+  });
+}
+
+function getProvidersToTry() {
+  const configured = getConfiguredProviders();
+  const requested = normalizeProvider(process.env.LLM_PROVIDER);
+
+  if (!requested) {
+    throw new Error(`Unsupported LLM_PROVIDER "${process.env.LLM_PROVIDER}". Use auto, anthropic, openai, groq, or ollama.`);
   }
 
-  return {
-    analysis: await callOllama({
+  if (requested === "auto") {
+    return configured;
+  }
+
+  if (!configured.includes(requested)) {
+    throw new Error(`LLM_PROVIDER is set to "${requested}", but that provider is not configured.`);
+  }
+
+  return [requested];
+}
+
+function normalizeProvider(value: string | undefined): LlmProviderName | "auto" | null {
+  if (!value) return "auto";
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "auto") return "auto";
+  if (normalized === "claude" || normalized === "anthropic") return "anthropic";
+  if (normalized === "openai" || normalized === "gpt") return "openai";
+  if (normalized === "groq") return "groq";
+  if (normalized === "ollama" || normalized === "local") return "ollama";
+  return null;
+}
+
+async function callProvider(provider: LlmProviderName, prompt: string) {
+  if (provider === "anthropic") {
+    return callAnthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY || "",
+      model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514",
+      prompt
+    });
+  }
+
+  if (provider === "openai") {
+    return callOpenAiCompatible({
+      baseUrl: "https://api.openai.com/v1/chat/completions",
+      apiKey: process.env.OPENAI_API_KEY || "",
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      prompt
+    });
+  }
+
+  if (provider === "groq") {
+    return callOpenAiCompatible({
+      baseUrl: "https://api.groq.com/openai/v1/chat/completions",
+      apiKey: process.env.GROQ_API_KEY || "",
+      model: process.env.GROQ_MODEL || "llama-3.1-70b-versatile",
+      prompt
+    });
+  }
+
+  return callOllama({
       baseUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
       model: process.env.OLLAMA_MODEL || "llama3.1",
       prompt
-    }),
-    mode: "llm"
-  };
+  });
+}
+
+async function callAnthropic({
+  apiKey,
+  model,
+  prompt
+}: {
+  apiKey: string;
+  model: string;
+  prompt: string;
+}) {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 4096,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Anthropic request failed with status ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const text = Array.isArray(payload.content)
+    ? payload.content.find((part: { type?: string; text?: string }) => part.type === "text")?.text
+    : null;
+
+  return parseAnalysisJson(text);
 }
 
 async function callOpenAiCompatible({

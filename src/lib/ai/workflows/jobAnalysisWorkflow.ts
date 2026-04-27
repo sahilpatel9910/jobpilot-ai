@@ -14,7 +14,7 @@ export async function runJobAnalysisWorkflow(input: JobIntakeInput): Promise<Ana
     jobTitle: parsedJob.normalizedJobTitle
   };
 
-  const { analysis: baseAnalysis, mode } = await generateAnalysisWithLlm(normalizedInput);
+  const { analysis: baseAnalysis, mode, provider } = await generateAnalysisWithLlm(normalizedInput);
 
   // Agent workflow decision point: each step owns one concern so LangGraph nodes
   // can replace these direct function calls later without changing UI contracts.
@@ -34,6 +34,7 @@ export async function runJobAnalysisWorkflow(input: JobIntakeInput): Promise<Ana
   return {
     analysis,
     mode,
+    llmProvider: provider,
     ...persistence
   };
 }
