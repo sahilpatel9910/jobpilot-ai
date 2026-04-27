@@ -5,6 +5,7 @@ import { AnalysisResult } from "@/components/job/AnalysisResult";
 import { ApplicationStatusBadge } from "@/components/job/ApplicationStatusBadge";
 import { StatusSelect } from "@/components/job/StatusSelect";
 import { getApplication } from "@/lib/db/applications";
+import { formatApplicationDateTime } from "@/lib/format/date";
 
 export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -25,7 +26,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           <div>
             <div className="flex flex-wrap items-center gap-3">
               <ApplicationStatusBadge status={application.status} />
-              <span className="text-sm text-slate-500">{new Date(application.created_at).toLocaleString()}</span>
+              <span className="text-sm text-slate-500">{formatApplicationDateTime(application.created_at)}</span>
             </div>
             <h1 className="mt-3 text-3xl font-semibold tracking-normal">{application.job_title}</h1>
             <p className="mt-2 text-base text-slate-600">{application.company_name}</p>

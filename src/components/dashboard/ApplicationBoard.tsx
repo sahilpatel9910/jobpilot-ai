@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { APPLICATION_STATUSES, type ApplicationRecord } from "@/lib/db/types";
 import { ApplicationStatusBadge } from "@/components/job/ApplicationStatusBadge";
+import { formatApplicationDate } from "@/lib/format/date";
 
 export function ApplicationBoard({ applications }: { applications: ApplicationRecord[] }) {
   return (
@@ -27,7 +28,7 @@ export function ApplicationBoard({ applications }: { applications: ApplicationRe
                     <p className="text-sm font-semibold">{application.job_title}</p>
                     <p className="mt-1 text-sm text-slate-500">{application.company_name}</p>
                     <p className="mt-3 text-xs font-medium text-slate-500">
-                      Match {application.match_score ?? 0}% · {new Date(application.created_at).toLocaleDateString()}
+                      Match {application.match_score ?? 0}% · {formatApplicationDate(application.created_at)}
                     </p>
                   </Link>
                 ))
