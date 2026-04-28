@@ -56,32 +56,36 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         </div>
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
-        <ApplicationNotes applicationId={application.id} initialNotes={application.notes || ""} />
-        <StatusHistory history={history} />
-      </div>
-
-      <AnalysisResult
-        analysis={{
-          summary: application.summary || "",
-          requiredSkills: application.required_skills,
-          matchScore: application.match_score || 0,
-          missingKeywords: application.missing_keywords,
-          strengths: application.strengths,
-          gaps: application.gaps,
-          suggestedBullets: application.suggested_bullets,
-          coverLetter: ""
-        }}
-        coverLetterSlot={
-          <CoverLetterWorkspace
-            applicationId={application.id}
-            initialCoverLetter={application.cover_letter || ""}
-            initialContext={application.cover_letter_context || ""}
-            initialRevisionInstruction={application.cover_letter_revision_instruction || ""}
-            initialStatus={application.cover_letter_status || "not_generated"}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
+        <div className="min-w-0">
+          <AnalysisResult
+            analysis={{
+              summary: application.summary || "",
+              requiredSkills: application.required_skills,
+              matchScore: application.match_score || 0,
+              missingKeywords: application.missing_keywords,
+              strengths: application.strengths,
+              gaps: application.gaps,
+              suggestedBullets: application.suggested_bullets,
+              coverLetter: ""
+            }}
+            coverLetterSlot={
+              <CoverLetterWorkspace
+                applicationId={application.id}
+                initialCoverLetter={application.cover_letter || ""}
+                initialContext={application.cover_letter_context || ""}
+                initialRevisionInstruction={application.cover_letter_revision_instruction || ""}
+                initialStatus={application.cover_letter_status || "not_generated"}
+              />
+            }
           />
-        }
-      />
+        </div>
+
+        <aside className="space-y-5 xl:sticky xl:top-6">
+          <ApplicationNotes applicationId={application.id} initialNotes={application.notes || ""} />
+          <StatusHistory history={history} />
+        </aside>
+      </div>
 
       <AgentTrace agentRuns={agentRuns} />
     </div>

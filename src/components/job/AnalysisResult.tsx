@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { JobAnalysis } from "@/lib/db/types";
 import { KeywordGapList } from "@/components/job/KeywordGapList";
 import { MatchScoreCard } from "@/components/job/MatchScoreCard";
+import { CopyButton } from "@/components/ui/CopyButton";
 
 export function AnalysisResult({ analysis, coverLetterSlot }: { analysis: JobAnalysis; coverLetterSlot?: ReactNode }) {
   return (
@@ -35,18 +36,24 @@ export function AnalysisResult({ analysis, coverLetterSlot }: { analysis: JobAna
                 Use these as targeted edits for this role. Keep only bullets that are true to your experience.
               </p>
             </div>
-            <span className="w-fit rounded-full bg-surface px-3 py-1 text-xs font-semibold text-slate-600">
-              {analysis.suggestedBullets.length} suggestions
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-fit rounded-full bg-surface px-3 py-1 text-xs font-semibold text-slate-600">
+                {analysis.suggestedBullets.length} suggestions
+              </span>
+              <CopyButton value={analysis.suggestedBullets.map((bullet) => `- ${bullet}`).join("\n")} label="Copy all" />
+            </div>
           </div>
           <ol className="mt-4 grid gap-3">
             {analysis.suggestedBullets.map((bullet, index) => (
               <li key={bullet} className="rounded-lg border border-slateLine bg-surface p-4">
-                <div className="flex gap-3">
-                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-pilot-600 text-xs font-bold text-white">
-                    {index + 1}
-                  </span>
-                  <p className="text-sm leading-6 text-slate-700">{bullet}</p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex gap-3">
+                    <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-pilot-600 text-xs font-bold text-white">
+                      {index + 1}
+                    </span>
+                    <p className="text-sm leading-6 text-slate-700">{bullet}</p>
+                  </div>
+                  <CopyButton value={bullet} label="Copy" className="shrink-0 sm:px-2.5 sm:py-1.5 sm:text-xs" />
                 </div>
               </li>
             ))}
