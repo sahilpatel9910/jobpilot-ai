@@ -1,4 +1,5 @@
-import type { JobIntakeInput } from "@/lib/db/types";
+import type { QualityReviewResult } from "@/lib/ai/agents/qualityReviewAgent";
+import type { JobAnalysis, JobIntakeInput } from "@/lib/db/types";
 
 export const SYSTEM_PROMPT = `You are JobPilot AI, an expert career coach, recruiter, and ATS optimization specialist.
 Analyse a job description against a candidate resume.
@@ -55,4 +56,65 @@ Cover letter criteria:
 - If company name is provided, personalize the tone and message accordingly.
 - Closing should show enthusiasm, include a concise call to action, and sound confident.
 - The cover letter must be final polished text only inside the coverLetter field. Do not include explanatory bullets or notes.`;
+}
+
+export function buildAnalysisRepairPrompt(
+  input: JobIntakeInput,
+  analysis: JobAnalysis,
+  review: QualityReviewResult
+) {
+  return `Company: ${input.companyName}
+Job title: ${input.jobTitle}
+Job URL: ${input.jobUrl || "Not provided"}
+
+Job description:
+${input.jobDescription}
+
+Resume:
+${input.resumeText}
+
+Current analysis JSON:
+${JSON.stringify(analysis, null, 2)}
+
+Quality review result:
+${JSON.stringify(
+  {
+    qualityScore: review.qualityScore,
+    warnings: review.warnings,
+    recommendations: review.recommendations,
+    categoryScores: review.categoryScores,
+    checks: review.checks
+  },
+  null,
+  2
+)}
+
+Repair task:
+Revise the current analysis so it addresses the quality review warnings and recommendations.
+Keep sections that already satisfy the review. Change only what is needed to improve quality, grounding, ATS relevance, and cover-letter fit.
+
+Return JSON with this exact shape:
+{
+  "summary": "2-3 sentences. Do not include a percentage or score in this text.",
+  "requiredSkills": ["string"],
+  "matchScore": 0,
+  "missingKeywords": ["string"],
+  "strengths": ["string"],
+  "gaps": ["string"],
+  "suggestedBullets": ["string"],
+  "coverLetter": "string"
+}
+
+Repair rules:
+- Return only valid JSON. No markdown, commentary, code fences, or explanation.
+- Do not invent experience, tools, employers, metrics, projects, education, or achievements not present in the resume.
+- If evidence is weak or missing, express that honestly in gaps rather than fabricating fit.
+- The summary must not mention score text, percentages, or "x/100".
+- matchScore must be an integer from 0 to 100 and consistent with the strengths/gaps.
+- requiredSkills and missingKeywords must come from the job description.
+- strengths and suggestedBullets must be traceable to the resume text.
+- Suggested bullets may improve wording and positioning, but cannot add fake metrics.
+- Cover letter must mention ${input.companyName} and the ${input.jobTitle} role naturally.
+- Cover letter must be professional, confident, natural, ATS-aware, and 250-350 words.
+- Avoid generic openings like "I am writing to apply".`;
 }

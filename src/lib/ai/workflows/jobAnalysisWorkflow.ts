@@ -1,5 +1,6 @@
 import type { AnalyseJobResponse, JobAnalysis, JobIntakeInput } from "@/lib/db/types";
 import { createAgentTrace, persistAgentTrace } from "@/lib/ai/agentTrace";
+import { analysisRepairAgent } from "@/lib/ai/agents/analysisRepairAgent";
 import { applicationTrackerAgent } from "@/lib/ai/agents/applicationTrackerAgent";
 import { atsKeywordAgent } from "@/lib/ai/agents/atsKeywordAgent";
 import { coverLetterAgent } from "@/lib/ai/agents/coverLetterAgent";
@@ -63,14 +64,14 @@ export async function runJobAnalysisWorkflow(input: JobIntakeInput): Promise<Ana
     })
   );
 
-  const analysis: JobAnalysis = {
+  let analysis: JobAnalysis = {
     ...baseAnalysis,
     ...ats,
     ...matcher,
     coverLetter
   };
 
-  const qualityReview = qualityReviewAgent(normalizedInput, analysis);
+  let qualityReview = qualityReviewAgent(normalizedInput, analysis);
   traces.push(
     createAgentTrace("Quality Review Agent", "Review final analysis for consistency, grounding, and cover-letter quality.", {
       qualityScore: qualityReview.qualityScore,
@@ -81,6 +82,53 @@ export async function runJobAnalysisWorkflow(input: JobIntakeInput): Promise<Ana
       checks: qualityReview.checks
     })
   );
+
+  if (!qualityReview.passed && mode === "llm" && provider !== "mock") {
+    try {
+      const repair = await analysisRepairAgent({
+        input: normalizedInput,
+        analysis,
+        review: qualityReview,
+        provider
+      });
+
+      analysis = repair.analysis;
+      traces.push(
+        createAgentTrace("Analysis Repair Agent", "Repair failed quality-review sections with the same LLM provider.", {
+          repairedBy: repair.repairedBy,
+          attemptedWarnings: repair.attemptedWarnings,
+          attemptedRecommendations: repair.attemptedRecommendations,
+          repairedMatchScore: analysis.matchScore,
+          coverLetterWordCount: analysis.coverLetter.split(/\s+/).filter(Boolean).length
+        })
+      );
+
+      qualityReview = qualityReviewAgent(normalizedInput, analysis);
+      traces.push(
+        createAgentTrace("Quality Review Agent (Repair Pass)", "Re-review repaired analysis before persistence.", {
+          qualityScore: qualityReview.qualityScore,
+          passed: qualityReview.passed,
+          warnings: qualityReview.warnings,
+          recommendations: qualityReview.recommendations,
+          categoryScores: qualityReview.categoryScores,
+          checks: qualityReview.checks
+        })
+      );
+    } catch (error) {
+      traces.push(
+        createAgentTrace(
+          "Analysis Repair Agent",
+          "Repair failed; continue with original reviewed analysis so the application can still be saved.",
+          {
+            provider,
+            error: error instanceof Error ? error.message : "Unknown repair error",
+            originalQualityScore: qualityReview.qualityScore
+          },
+          "failed"
+        )
+      );
+    }
+  }
 
   const persistence = await applicationTrackerAgent(normalizedInput, analysis);
   traces.push(

@@ -1,6 +1,7 @@
 import type { JobAnalysis, JobIntakeInput } from "@/lib/db/types";
+import type { QualityReviewResult } from "@/lib/ai/agents/qualityReviewAgent";
 import { normalizeAnalysis } from "@/lib/ai/analysisValidator";
-import { buildJobAnalysisPrompt, SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { buildAnalysisRepairPrompt, buildJobAnalysisPrompt, SYSTEM_PROMPT } from "@/lib/ai/prompts";
 
 type LlmResult = {
   analysis: JobAnalysis;
@@ -8,7 +9,7 @@ type LlmResult = {
   provider: LlmProviderName | "mock";
 };
 
-type LlmProviderName = "anthropic" | "openai" | "groq" | "ollama";
+export type LlmProviderName = "anthropic" | "openai" | "groq" | "ollama";
 
 const PROVIDER_ORDER: LlmProviderName[] = ["anthropic", "openai", "groq", "ollama"];
 
@@ -38,6 +39,21 @@ export async function generateAnalysisWithLlm(input: JobIntakeInput): Promise<Ll
   }
 
   throw new Error(`All configured LLM providers failed. ${errors.join(" | ")}`);
+}
+
+export async function repairAnalysisWithLlm({
+  input,
+  analysis,
+  review,
+  provider
+}: {
+  input: JobIntakeInput;
+  analysis: JobAnalysis;
+  review: QualityReviewResult;
+  provider: LlmProviderName;
+}) {
+  const prompt = buildAnalysisRepairPrompt(input, analysis, review);
+  return callProvider(provider, prompt);
 }
 
 function getConfiguredProviders() {
