@@ -127,7 +127,7 @@ export function CoverLetterWorkspace({
 
       <div className="space-y-5 p-5">
         {!hasCoverLetter ? (
-          <div className="grid gap-5 lg:grid-cols-[1fr_260px]">
+          <div className="space-y-4">
             <label className="block space-y-2">
               <span className="text-sm font-semibold">Optional context before generation</span>
               <textarea
@@ -142,18 +142,20 @@ export function CoverLetterWorkspace({
               </p>
             </label>
 
-            <div className="rounded-lg border border-slateLine bg-surface p-4">
-              <h3 className="text-sm font-semibold">Before you generate</h3>
-              <ul className="mt-3 space-y-2 text-sm leading-5 text-slate-600">
-                <li>Check whether a listed gap is actually wrong.</li>
-                <li>Add proof from your resume or real experience.</li>
-                <li>Tell the agent what not to emphasise.</li>
-              </ul>
+            <div className="flex flex-col gap-4 rounded-lg border border-slateLine bg-surface p-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold">Before you generate</h3>
+                <ul className="mt-2 grid gap-2 text-sm leading-5 text-slate-600 lg:grid-cols-3">
+                  <li>Check whether a listed gap is actually wrong.</li>
+                  <li>Add proof from your resume or real experience.</li>
+                  <li>Tell the agent what not to emphasise.</li>
+                </ul>
+              </div>
               <button
                 type="button"
                 onClick={generateCoverLetter}
                 disabled={isGenerating}
-                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-pilot-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-pilot-700 focus:outline-none focus:ring-2 focus:ring-pilot-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+                className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-pilot-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-pilot-700 focus:outline-none focus:ring-2 focus:ring-pilot-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
               >
                 {isGenerating ? <Loader2 className="animate-spin" size={17} aria-hidden="true" /> : <Sparkles size={17} aria-hidden="true" />}
                 Generate cover letter
@@ -164,7 +166,7 @@ export function CoverLetterWorkspace({
           <div className="space-y-5">
             <CoverLetterPreview coverLetter={coverLetter} embedded />
 
-            <div className="grid gap-5 rounded-lg border border-slateLine bg-surface p-4 lg:grid-cols-2">
+            <div className="grid gap-5 rounded-lg border border-slateLine bg-surface p-4 xl:grid-cols-2">
               <label className="block space-y-2">
                 <span className="text-sm font-semibold">Context used for this draft</span>
                 <textarea
