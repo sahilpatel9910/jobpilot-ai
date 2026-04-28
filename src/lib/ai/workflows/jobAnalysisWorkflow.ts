@@ -76,6 +76,8 @@ export async function runJobAnalysisWorkflow(input: JobIntakeInput): Promise<Ana
       qualityScore: qualityReview.qualityScore,
       passed: qualityReview.passed,
       warnings: qualityReview.warnings,
+      recommendations: qualityReview.recommendations,
+      categoryScores: qualityReview.categoryScores,
       checks: qualityReview.checks
     })
   );
