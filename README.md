@@ -47,4 +47,12 @@ If no LLM key/base URL is configured, `POST /api/analyse-job` returns determinis
 
 ## Supabase
 
-Run `supabase/schema.sql` in the Supabase SQL editor. The API route uses `SUPABASE_SERVICE_ROLE_KEY` on the server to save analyses. Do not expose the service role key in frontend code.
+Run `supabase/schema.sql` in the Supabase SQL editor. The schema uses Supabase Auth user ownership and RLS policies so each logged-in user only sees their own applications, resume profile, status history, and agent traces.
+
+The server still uses `SUPABASE_SERVICE_ROLE_KEY` inside API routes for trusted writes, but every route authenticates the Supabase user first and scopes reads/writes by `user_id`. Do not expose the service role key in frontend code.
+
+Auth pages:
+- `/login`
+- `/signup`
+
+For a fresh MVP reset, delete old shared rows before enforcing `user_id not null`. The project database was cleared during the auth migration.

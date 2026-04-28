@@ -2,6 +2,7 @@ create extension if not exists pgcrypto;
 
 create table if not exists public.applications (
   id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade,
   company_name text not null,
   job_title text not null,
   job_url text,
@@ -27,8 +28,12 @@ create table if not exists public.applications (
   updated_at timestamptz not null default now()
 );
 
+alter table if exists public.applications
+  add column if not exists user_id uuid references auth.users(id) on delete cascade;
+
 create index if not exists applications_status_idx on public.applications(status);
 create index if not exists applications_created_at_idx on public.applications(created_at desc);
+create index if not exists applications_user_id_idx on public.applications(user_id);
 
 create or replace function public.set_updated_at()
 returns trigger as $$
@@ -74,11 +79,20 @@ alter table if exists public.applications
   check (cover_letter_status in ('not_generated', 'generated', 'regenerated'));
 
 create table if not exists public.profile_settings (
-  id text primary key default 'default',
+  id text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
   resume_text text not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table if exists public.profile_settings
+  alter column id drop default;
+
+alter table if exists public.profile_settings
+  add column if not exists user_id uuid references auth.users(id) on delete cascade;
+
+create unique index if not exists profile_settings_user_id_idx on public.profile_settings(user_id);
 
 drop trigger if exists set_profile_settings_updated_at on public.profile_settings;
 create trigger set_profile_settings_updated_at
@@ -115,6 +129,119 @@ create table if not exists public.agent_runs (
 create index if not exists agent_runs_application_id_idx
   on public.agent_runs(application_id, started_at asc);
 
--- MVP note:
--- Keep RLS disabled while there is no authentication layer, or add server-only
--- policies before exposing direct client reads. API routes use the service role key.
+-- Auth migration note:
+-- Existing shared MVP rows should be cleared before enforcing user ownership.
+-- This project database was cleared during the auth implementation session.
+
+alter table if exists public.applications
+  alter column user_id set not null;
+
+alter table if exists public.profile_settings
+  alter column user_id set not null;
+
+alter table public.applications enable row level security;
+alter table public.profile_settings enable row level security;
+alter table public.application_status_history enable row level security;
+alter table public.agent_runs enable row level security;
+
+drop policy if exists "Users can read own applications" on public.applications;
+drop policy if exists "Users can insert own applications" on public.applications;
+drop policy if exists "Users can update own applications" on public.applications;
+drop policy if exists "Users can delete own applications" on public.applications;
+
+create policy "Users can read own applications"
+on public.applications for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+create policy "Users can insert own applications"
+on public.applications for insert
+to authenticated
+with check ((select auth.uid()) = user_id);
+
+create policy "Users can update own applications"
+on public.applications for update
+to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+create policy "Users can delete own applications"
+on public.applications for delete
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can read own profile settings" on public.profile_settings;
+drop policy if exists "Users can insert own profile settings" on public.profile_settings;
+drop policy if exists "Users can update own profile settings" on public.profile_settings;
+drop policy if exists "Users can delete own profile settings" on public.profile_settings;
+
+create policy "Users can read own profile settings"
+on public.profile_settings for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+create policy "Users can insert own profile settings"
+on public.profile_settings for insert
+to authenticated
+with check ((select auth.uid()) = user_id);
+
+create policy "Users can update own profile settings"
+on public.profile_settings for update
+to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+create policy "Users can delete own profile settings"
+on public.profile_settings for delete
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can read own status history" on public.application_status_history;
+drop policy if exists "Users can insert own status history" on public.application_status_history;
+
+create policy "Users can read own status history"
+on public.application_status_history for select
+to authenticated
+using (
+  exists (
+    select 1 from public.applications
+    where applications.id = application_status_history.application_id
+      and applications.user_id = (select auth.uid())
+  )
+);
+
+create policy "Users can insert own status history"
+on public.application_status_history for insert
+to authenticated
+with check (
+  exists (
+    select 1 from public.applications
+    where applications.id = application_status_history.application_id
+      and applications.user_id = (select auth.uid())
+  )
+);
+
+drop policy if exists "Users can read own agent runs" on public.agent_runs;
+drop policy if exists "Users can insert own agent runs" on public.agent_runs;
+
+create policy "Users can read own agent runs"
+on public.agent_runs for select
+to authenticated
+using (
+  exists (
+    select 1 from public.applications
+    where applications.id = agent_runs.application_id
+      and applications.user_id = (select auth.uid())
+  )
+);
+
+create policy "Users can insert own agent runs"
+on public.agent_runs for insert
+to authenticated
+with check (
+  exists (
+    select 1 from public.applications
+    where applications.id = agent_runs.application_id
+      and applications.user_id = (select auth.uid())
+  )
+);

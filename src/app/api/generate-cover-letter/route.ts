@@ -4,7 +4,7 @@ import { toUserFacingLlmError } from "@/lib/ai/analysisValidator";
 import { coverLetterAgent } from "@/lib/ai/agents/coverLetterAgent";
 import { qualityReviewAgent } from "@/lib/ai/agents/qualityReviewAgent";
 import type { CoverLetterStatus, JobAnalysis, JobIntakeInput } from "@/lib/db/types";
-import { createSupabaseServerClient, hasSupabaseServerConfig } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getCurrentUser, hasSupabaseServerConfig } from "@/lib/supabase/server";
 import { validateCoverLetterInput } from "@/lib/security/validateCoverLetterInput";
 
 type GenerateCoverLetterBody = {
@@ -18,6 +18,10 @@ export async function POST(request: Request) {
   if (!hasSupabaseServerConfig()) {
     return NextResponse.json({ error: "Supabase is not configured." }, { status: 400 });
   }
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "You must be logged in to generate cover letters." }, { status: 401 });
+  }
 
   const body = (await request.json()) as GenerateCoverLetterBody;
   if (!body.applicationId) {
@@ -29,6 +33,7 @@ export async function POST(request: Request) {
     .from("applications")
     .select("*")
     .eq("id", body.applicationId)
+    .eq("user_id", user.id)
     .single();
 
   if (loadError || !application) {
@@ -122,6 +127,7 @@ export async function POST(request: Request) {
         cover_letter_status: nextStatus
       })
       .eq("id", application.id)
+      .eq("user_id", user.id)
       .select()
       .single();
 

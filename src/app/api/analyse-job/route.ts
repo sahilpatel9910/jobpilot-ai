@@ -3,8 +3,14 @@ import { toUserFacingLlmError } from "@/lib/ai/analysisValidator";
 import { runJobAnalysisWorkflow } from "@/lib/ai/workflows/jobAnalysisWorkflow";
 import type { JobIntakeInput } from "@/lib/db/types";
 import { validateAnalysisInput } from "@/lib/security/validateAnalysisInput";
+import { getCurrentUser } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "You must be logged in to analyse and save jobs." }, { status: 401 });
+  }
+
   const body = (await request.json()) as Partial<JobIntakeInput>;
   const validation = validateAnalysisInput(body);
 
@@ -34,7 +40,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await runJobAnalysisWorkflow(validation.sanitizedInput, validation.result);
+    const response = await runJobAnalysisWorkflow(validation.sanitizedInput, validation.result, user.id);
     return NextResponse.json({
       ...response,
       validation: {

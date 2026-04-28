@@ -1,15 +1,19 @@
 import { NextResponse } from "next/server";
 import { APPLICATION_STATUSES, type ApplicationStatus } from "@/lib/db/types";
-import { createSupabaseServerClient, hasSupabaseServerConfig } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getCurrentUser, hasSupabaseServerConfig } from "@/lib/supabase/server";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!hasSupabaseServerConfig()) {
     return NextResponse.json({ application: null, persistence: "skipped" });
   }
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "You must be logged in to view this application." }, { status: 401 });
+  }
 
   const { id } = await params;
   const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase.from("applications").select("*").eq("id", id).single();
+  const { data, error } = await supabase.from("applications").select("*").eq("id", id).eq("user_id", user.id).single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 404 });
@@ -21,6 +25,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!hasSupabaseServerConfig()) {
     return NextResponse.json({ error: "Supabase is not configured." }, { status: 400 });
+  }
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "You must be logged in to update this application." }, { status: 401 });
   }
 
   const body = (await request.json()) as { status?: string; note?: string };
@@ -35,6 +43,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .from("applications")
     .select("status")
     .eq("id", id)
+    .eq("user_id", user.id)
     .single();
 
   if (existingError) {
@@ -45,6 +54,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .from("applications")
     .update({ status: body.status as ApplicationStatus })
     .eq("id", id)
+    .eq("user_id", user.id)
     .select()
     .single();
 
@@ -68,10 +78,14 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (!hasSupabaseServerConfig()) {
     return NextResponse.json({ error: "Supabase is not configured." }, { status: 400 });
   }
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "You must be logged in to delete this application." }, { status: 401 });
+  }
 
   const { id } = await params;
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase.from("applications").delete().eq("id", id);
+  const { error } = await supabase.from("applications").delete().eq("id", id).eq("user_id", user.id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

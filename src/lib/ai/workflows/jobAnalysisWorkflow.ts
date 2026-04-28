@@ -11,7 +11,8 @@ import type { InputValidationResult } from "@/lib/security/types";
 
 export async function runJobAnalysisWorkflow(
   input: JobIntakeInput,
-  validationResult?: InputValidationResult
+  validationResult: InputValidationResult | undefined,
+  userId: string
 ): Promise<AnalyseJobResponse> {
   const parsedJob = jobParserAgent(input);
   const traces = validationResult
@@ -139,7 +140,7 @@ export async function runJobAnalysisWorkflow(
     }
   }
 
-  const persistence = await applicationTrackerAgent(normalizedInput, analysis);
+  const persistence = await applicationTrackerAgent(normalizedInput, analysis, userId);
   traces.push(
     createAgentTrace("Application Tracker Agent", "Persist application and analysis result to Supabase.", {
       persistence: persistence.persistence,

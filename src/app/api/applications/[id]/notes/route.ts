@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient, hasSupabaseServerConfig } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getCurrentUser, hasSupabaseServerConfig } from "@/lib/supabase/server";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!hasSupabaseServerConfig()) {
     return NextResponse.json({ error: "Supabase is not configured." }, { status: 400 });
+  }
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "You must be logged in to update notes." }, { status: 401 });
   }
 
   const body = (await request.json()) as { notes?: string };
@@ -13,6 +17,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .from("applications")
     .update({ notes: body.notes?.trim() || null })
     .eq("id", id)
+    .eq("user_id", user.id)
     .select()
     .single();
 

@@ -1,12 +1,17 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Plus } from "lucide-react";
 import { ApplicationBoard } from "@/components/dashboard/ApplicationBoard";
 import { StatsCards } from "@/components/dashboard/StatsCards";
 import { listApplications } from "@/lib/db/applications";
+import { getCurrentUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
   const applications = await listApplications();
 
   return (

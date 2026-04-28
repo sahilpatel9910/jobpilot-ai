@@ -33,6 +33,7 @@ export type CoverLetterStatus = "not_generated" | "generated" | "regenerated";
 
 export type ApplicationRecord = {
   id: string;
+  user_id: string;
   company_name: string;
   job_title: string;
   job_url: string | null;
@@ -58,6 +59,7 @@ export type ApplicationRecord = {
 
 export type ProfileSettingsRecord = {
   id: string;
+  user_id: string;
   resume_text: string;
   created_at: string;
   updated_at: string;

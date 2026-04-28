@@ -1,12 +1,17 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowRight, ClipboardCheck, FileText, Gauge, Sparkles } from "lucide-react";
 import { listApplications } from "@/lib/db/applications";
 import { ApplicationBoard } from "@/components/dashboard/ApplicationBoard";
 import { StatsCards } from "@/components/dashboard/StatsCards";
+import { getCurrentUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
   const applications = await listApplications();
 
   return (

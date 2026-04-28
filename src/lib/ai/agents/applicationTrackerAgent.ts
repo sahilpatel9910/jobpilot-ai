@@ -3,7 +3,8 @@ import { createSupabaseServerClient, hasSupabaseServerConfig } from "@/lib/supab
 
 export async function applicationTrackerAgent(
   input: JobIntakeInput,
-  analysis: JobAnalysis
+  analysis: JobAnalysis,
+  userId: string
 ): Promise<Pick<AnalyseJobResponse, "application" | "persistence" | "persistenceError">> {
   if (!hasSupabaseServerConfig()) {
     return { application: null, persistence: "skipped" };
@@ -14,6 +15,7 @@ export async function applicationTrackerAgent(
     const { data, error } = await supabase
       .from("applications")
       .insert({
+        user_id: userId,
         company_name: input.companyName,
         job_title: input.jobTitle,
         job_url: input.jobUrl || null,

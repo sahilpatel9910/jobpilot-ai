@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 import { classifyInputText, countWords } from "@/lib/security/inputClassifier";
 import { MAX_RESUME_CHARACTERS, sanitizeTextField } from "@/lib/security/inputSanitizer";
-import { createSupabaseServerClient, hasSupabaseServerConfig } from "@/lib/supabase/server";
-
-const PROFILE_ID = "default";
+import { createSupabaseServerClient, getCurrentUser, hasSupabaseServerConfig } from "@/lib/supabase/server";
 
 export async function GET() {
   if (!hasSupabaseServerConfig()) {
     return NextResponse.json({ resumeText: "", persistence: "skipped" });
+  }
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "You must be logged in to load your resume." }, { status: 401 });
   }
 
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase
     .from("profile_settings")
     .select("resume_text")
-    .eq("id", PROFILE_ID)
+    .eq("user_id", user.id)
     .maybeSingle();
 
   if (error) {
@@ -27,6 +29,10 @@ export async function GET() {
 export async function PUT(request: Request) {
   if (!hasSupabaseServerConfig()) {
     return NextResponse.json({ error: "Supabase is not configured." }, { status: 400 });
+  }
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "You must be logged in to save your resume." }, { status: 401 });
   }
 
   const body = (await request.json()) as { resumeText?: string };
@@ -56,7 +62,7 @@ export async function PUT(request: Request) {
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase
     .from("profile_settings")
-    .upsert({ id: PROFILE_ID, resume_text: resumeText }, { onConflict: "id" })
+    .upsert({ id: user.id, user_id: user.id, resume_text: resumeText }, { onConflict: "user_id" })
     .select()
     .single();
 

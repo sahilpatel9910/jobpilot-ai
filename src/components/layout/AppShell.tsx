@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { BarChart3, BriefcaseBusiness, ClipboardList, Sparkles } from "lucide-react";
+import { LogoutButton } from "@/components/auth/LogoutButton";
+import { getCurrentUser } from "@/lib/supabase/server";
 
 const navItems = [
   { href: "/", label: "Overview", icon: BarChart3 },
@@ -7,7 +9,9 @@ const navItems = [
   { href: "/dashboard", label: "Tracker", icon: ClipboardList }
 ] as const;
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export async function AppShell({ children }: { children: React.ReactNode }) {
+  const user = await getCurrentUser();
+
   return (
     <div className="min-h-screen bg-surface text-ink">
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 border-r border-slateLine bg-white px-4 py-5 lg:block">
@@ -32,11 +36,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
-        <div className="absolute bottom-5 left-4 right-4 rounded-lg border border-slateLine bg-surface p-4 text-sm text-slate-600">
-          <p className="font-medium text-ink">MVP v1</p>
-          <p className="mt-1 text-xs leading-5">
-            Paste a job description and resume, then save an analysis to Supabase.
-          </p>
+        <div className="absolute bottom-5 left-4 right-4 space-y-3">
+          {user ? (
+            <div className="rounded-lg border border-slateLine bg-surface p-3 text-sm text-slate-600">
+              <p className="font-medium text-ink">Signed in</p>
+              <p className="mt-1 truncate text-xs">{user.email}</p>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-slateLine bg-surface p-3 text-sm text-slate-600">
+              <p className="font-medium text-ink">Private workspace</p>
+              <p className="mt-1 text-xs leading-5">Log in to access your own dashboard.</p>
+            </div>
+          )}
+          {user ? <LogoutButton /> : null}
         </div>
       </aside>
 
