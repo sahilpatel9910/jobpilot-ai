@@ -18,7 +18,15 @@ export async function POST(request: Request) {
           resumeClassification: validation.result.resumeClassification,
           jobDescriptionClassification: validation.result.jobDescriptionClassification,
           riskLevel: validation.result.riskLevel,
-          detectedIssues: validation.result.detectedIssues
+          detectedIssues: validation.result.detectedIssues,
+          ...(process.env.NODE_ENV === "development"
+            ? {
+                debug: {
+                  sanitizedResumeLength: validation.result.sanitizedResumeText.length,
+                  sanitizedJobDescriptionLength: validation.result.sanitizedJobDescription.length
+                }
+              }
+            : {})
         }
       },
       { status: 400 }

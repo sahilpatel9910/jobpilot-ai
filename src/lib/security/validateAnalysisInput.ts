@@ -1,5 +1,5 @@
 import type { JobIntakeInput } from "@/lib/db/types";
-import { classifyInputText, countWords } from "@/lib/security/inputClassifier";
+import { classifyInputText, countWords, hasStrongJobAdStructure } from "@/lib/security/inputClassifier";
 import {
   MAX_COMPANY_CHARACTERS,
   MAX_JOB_DESCRIPTION_CHARACTERS,
@@ -106,11 +106,25 @@ export function validateAnalysisInput(input: Partial<JobIntakeInput>): AnalysisI
       detectedIssues.push("Resume classification is uncertain.");
     }
 
-    if (
+    const allowUnknownStructuredJobAd =
       jobDescription.value &&
       jobDescriptionWordCount >= MIN_JOB_DESCRIPTION_WORDS &&
       jobDescriptionClassification.classification === "unknown" &&
-      jobDescriptionClassification.jobDescriptionScore < 3
+      hasStrongJobAdStructure(jobDescriptionClassification.jobAdSignals);
+
+    if (allowUnknownStructuredJobAd) {
+      warnings.push("Job description was accepted based on job-ad structure, even though the classifier was uncertain.");
+      detectedIssues.push("Job description classification is uncertain but has strong job-ad structure.");
+    } else if (
+      jobDescription.value &&
+      jobDescriptionWordCount >= MIN_JOB_DESCRIPTION_WORDS &&
+      jobDescriptionClassification.classification === "unknown" &&
+      (jobDescriptionClassification.jobDescriptionScore < 4 ||
+        !(
+          jobDescriptionClassification.jobAdSignals.hiringIntent ||
+          jobDescriptionClassification.jobAdSignals.responsibilities ||
+          jobDescriptionClassification.jobAdSignals.requirements
+        ))
     ) {
       errors.push("This does not look like a job description. Please paste the full job ad, including responsibilities and requirements.");
     } else if (

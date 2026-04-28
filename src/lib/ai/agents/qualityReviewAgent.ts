@@ -27,6 +27,7 @@ export type QualityReviewResult = {
     coverLetterAvoidsTemplateLanguage: boolean;
     coverLetterUsesNamedResumeEvidence: boolean;
     employerQuestionsAddressed: boolean;
+    requiredGapsHandled: boolean;
     strengthsGroundedRatio: number;
     suggestedBulletsGroundedRatio: number;
   };
@@ -36,6 +37,8 @@ const SCORE_TEXT_PATTERN = /\b\d{1,3}\s?%\b|\b\d{1,3}\s?\/\s?100\b/i;
 const METRIC_PATTERN = /\b\d+[%x]?\b|\b\d+\s?(users|customers|applications|projects|hours|days|weeks|months)\b/i;
 const GENERIC_OPENINGS = [
   "i am writing to apply",
+  "i am writing to express my interest",
+  "i am excited to apply",
   "please accept my application",
   "i believe i would be a good fit",
   "your focus",
@@ -46,8 +49,15 @@ const TEMPLATE_PHRASES = [
   "aligns perfectly with my passion",
   "continued success",
   "i would welcome the opportunity to discuss",
+  "welcome the opportunity to discuss",
   "thank you for considering my application",
-  "i am confident i can contribute immediately"
+  "i am confident i can contribute immediately",
+  "excited to contribute",
+  "comfortable with unix cli",
+  "willingness to learn and adapt",
+  "dynamic team",
+  "fast-paced environment",
+  "passionate about"
 ];
 
 export function qualityReviewAgent(
@@ -61,6 +71,7 @@ export function qualityReviewAgent(
   const normalizedJobText = normalize(`${input.companyName} ${input.jobTitle} ${input.jobDescription}`);
   const normalizedResumeText = normalize(input.resumeText);
   const normalizedCoverLetter = normalize(analysis.coverLetter);
+  const normalizedCoverLetterBody = stripGreeting(normalizedCoverLetter);
   const coverLetterWordCount = includeCoverLetter ? analysis.coverLetter.split(/\s+/).filter(Boolean).length : 0;
   const hasRequiredSections = Boolean(
     analysis.summary &&
@@ -79,10 +90,11 @@ export function qualityReviewAgent(
   const coverLetterMentionsCompany = !includeCoverLetter || companyMentioned(input.companyName, normalizedCoverLetter);
   const coverLetterMentionsRole = !includeCoverLetter || normalizedCoverLetter.includes(normalize(input.jobTitle));
   const coverLetterAvoidsGenericOpening =
-    !includeCoverLetter || !GENERIC_OPENINGS.some((opening) => normalizedCoverLetter.startsWith(opening));
-  const coverLetterAvoidsTemplateLanguage = !includeCoverLetter || templatePhraseHits(normalizedCoverLetter) <= 1;
+    !includeCoverLetter || !GENERIC_OPENINGS.some((opening) => normalizedCoverLetterBody.startsWith(opening));
+  const coverLetterAvoidsTemplateLanguage = !includeCoverLetter || templatePhraseHits(normalizedCoverLetter) === 0;
   const coverLetterUsesNamedResumeEvidence = !includeCoverLetter || usesNamedResumeEvidence(input.resumeText, normalizedCoverLetter);
   const employerQuestionsAddressed = !includeCoverLetter || addressesEmployerQuestions(input.jobDescription, normalizedCoverLetter);
+  const requiredGapsHandled = !includeCoverLetter || addressesImportantRequiredGaps(input.jobDescription, input.resumeText, normalizedCoverLetter);
   const strengthsGroundedRatio = groundingRatio(analysis.strengths, normalizedResumeText);
   const suggestedBulletsGroundedRatio = groundingRatio(analysis.suggestedBullets, normalizedResumeText);
 
@@ -103,6 +115,7 @@ export function qualityReviewAgent(
   if (!coverLetterAvoidsTemplateLanguage) warnings.push("Cover letter uses template-style phrases that weaken recruiter impact.");
   if (!coverLetterUsesNamedResumeEvidence) warnings.push("Cover letter does not use enough named resume evidence, such as a project, employer, metric, or integration.");
   if (!employerQuestionsAddressed) warnings.push("Cover letter does not address employer screening-question topics supported by the resume.");
+  if (!requiredGapsHandled) warnings.push("Cover letter appears to hide an important JD requirement that is not visible in the resume.");
   if (strengthsGroundedRatio < 0.5) warnings.push("Strengths may not be sufficiently grounded in the resume.");
   if (suggestedBulletsGroundedRatio < 0.5) warnings.push("Suggested bullets may not be sufficiently grounded in the resume.");
 
@@ -127,6 +140,9 @@ export function qualityReviewAgent(
   if (includeCoverLetter && !employerQuestionsAddressed) {
     recommendations.push("Where the JD lists employer questions, weave in supported answers such as RDBMS, JavaScript, full-stack, or framework experience.");
   }
+  if (includeCoverLetter && !requiredGapsHandled) {
+    recommendations.push("Briefly acknowledge important missing tools or frameworks with adjacent evidence instead of ignoring them.");
+  }
 
   const categoryScores = {
     structure: average([scoreBoolean(hasRequiredSections), scoreBoolean(scoreInRange), scoreBoolean(summaryAvoidsScoreText)]),
@@ -140,7 +156,8 @@ export function qualityReviewAgent(
           coverLetterAvoidsGenericOpening ? 100 : 60,
           coverLetterAvoidsTemplateLanguage ? 100 : 60,
           coverLetterUsesNamedResumeEvidence ? 100 : 65,
-          employerQuestionsAddressed ? 100 : 75
+          employerQuestionsAddressed ? 100 : 75,
+          requiredGapsHandled ? 100 : 70
         ])
       : 100
   };
@@ -151,7 +168,8 @@ export function qualityReviewAgent(
     passed:
       qualityScore >= 75 &&
       warnings.filter((warning) => !warning.includes("target range")).length <= 2 &&
-      (!includeCoverLetter || (coverLetterAvoidsTemplateLanguage && coverLetterUsesNamedResumeEvidence && employerQuestionsAddressed)),
+      (!includeCoverLetter ||
+        (coverLetterAvoidsTemplateLanguage && coverLetterUsesNamedResumeEvidence && employerQuestionsAddressed && requiredGapsHandled)),
     warnings,
     recommendations,
     categoryScores,
@@ -170,6 +188,7 @@ export function qualityReviewAgent(
       coverLetterAvoidsTemplateLanguage,
       coverLetterUsesNamedResumeEvidence,
       employerQuestionsAddressed,
+      requiredGapsHandled,
       strengthsGroundedRatio,
       suggestedBulletsGroundedRatio
     }
@@ -197,6 +216,10 @@ function companyMentioned(companyName: string, normalizedCoverLetter: string) {
 
 function templatePhraseHits(coverLetter: string) {
   return TEMPLATE_PHRASES.filter((phrase) => coverLetter.includes(phrase)).length;
+}
+
+function stripGreeting(normalizedCoverLetter: string) {
+  return normalizedCoverLetter.replace(/^dear\s+(hiring manager|hiring team|team|recruiter|.+?team)\s+/, "").trim();
 }
 
 function usesNamedResumeEvidence(resumeText: string, normalizedCoverLetter: string) {
@@ -245,7 +268,22 @@ function addressesEmployerQuestions(jobDescription: string, normalizedCoverLette
     "australia"
   ];
 
-  return screeningTopics.filter((topic) => normalizedCoverLetter.includes(topic)).length >= 2;
+  const mentionedTopics = screeningTopics.filter((topic) => normalizedCoverLetter.includes(topic)).length;
+  const asksWorkRights = /right to work|work rights|visa|working rights/i.test(jobDescription);
+
+  return mentionedTopics >= 2 && (!asksWorkRights || /\b(work rights|right to work|visa|australia|australian)\b/.test(normalizedCoverLetter));
+}
+
+function addressesImportantRequiredGaps(jobDescription: string, resumeText: string, normalizedCoverLetter: string) {
+  const normalizedJob = normalize(jobDescription);
+  const normalizedResume = normalize(resumeText);
+  const importantRequirements = ["meteor", "revit", "autocad", "rsa", "white card"];
+
+  return importantRequirements.every((requirement) => {
+    if (!normalizedJob.includes(requirement)) return true;
+    if (normalizedResume.includes(requirement)) return true;
+    return normalizedCoverLetter.includes(requirement);
+  });
 }
 
 function normalize(value: string) {

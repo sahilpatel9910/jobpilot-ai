@@ -184,16 +184,24 @@ Return JSON with this exact shape:
 Cover letter rules:
 - Return only valid JSON. No markdown, commentary, code fences, or explanation.
 - Generate only the final polished cover letter in the coverLetter field.
-- Keep it 250-350 words.
-- Tone: professional, confident, natural, and Australian job market friendly.
+- Keep it 250-350 words and no more than 5 paragraphs.
+- Tone: professional, confident, natural, and Australian job market friendly. Write like a capable engineer, not a marketing writer.
 - Do not mention "missing keywords" directly.
-- Lead with concrete role fit and strongest relevant evidence. Do not open with generic company praise.
+- Start directly with "Dear Hiring Manager," or a specific team name if provided.
+- Never start the body with "I am writing to express my interest", "I am excited to apply", "I believe I would be", or any variation.
+- Never open with a compliment about the company.
+- The first two body lines must say who the candidate is and what they bring, using concrete evidence from the resume.
 - Mention the strongest relevant resume project, employer, metric, or integration when it maps to the JD.
+- Do not list skills in isolation; show skills through actual work, projects, numbers, or outcomes.
 - Address employer/application questions when the resume or user context supports them, but do not invent legal work status.
+- If user context provides working rights, visa status, or years of experience, include it naturally in one concise sentence when relevant.
 - User context can clarify gaps, but it does not override the resume blindly.
 - If user context adds experience not visible in the resume, phrase carefully and only when explicitly stated by the user.
 - If user context contradicts the resume, prefer cautious wording and avoid overclaiming.
 - Do not fabricate projects, employers, years, certifications, technologies, metrics, or work rights.
-- If the resume lacks a JD requirement, address it tactfully only when useful; otherwise focus on transferable evidence.
-- If revising a previous cover letter, preserve accurate strong points and apply the revision instruction.`;
+- If the JD names a framework or tool that is not in the resume, acknowledge it briefly and confidently through adjacent evidence. Do not hide the gap and do not spend a full paragraph on it.
+- Reference what the company actually does, builds, sells, or the role's product context only if present in the JD or user context. Do not invent company research.
+- Avoid filler and corporate buzzwords, including "passionate", "excited to contribute", "aligns with my values", "dynamic team", "fast-paced environment", "comfortable with Unix CLI", and "I would welcome the opportunity to discuss".
+- Closing must be one direct sentence with specific value, not a throwaway request for a discussion.
+- If revising a previous cover letter, remove generic openings/closings, preserve accurate strong evidence, and apply the revision instruction.`;
 }
