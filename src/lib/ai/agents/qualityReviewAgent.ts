@@ -50,20 +50,25 @@ const TEMPLATE_PHRASES = [
   "i am confident i can contribute immediately"
 ];
 
-export function qualityReviewAgent(input: JobIntakeInput, analysis: JobAnalysis): QualityReviewResult {
+export function qualityReviewAgent(
+  input: JobIntakeInput,
+  analysis: JobAnalysis,
+  options: { includeCoverLetter?: boolean } = {}
+): QualityReviewResult {
+  const includeCoverLetter = options.includeCoverLetter ?? true;
   const warnings: string[] = [];
   const recommendations: string[] = [];
   const normalizedJobText = normalize(`${input.companyName} ${input.jobTitle} ${input.jobDescription}`);
   const normalizedResumeText = normalize(input.resumeText);
   const normalizedCoverLetter = normalize(analysis.coverLetter);
-  const coverLetterWordCount = analysis.coverLetter.split(/\s+/).filter(Boolean).length;
+  const coverLetterWordCount = includeCoverLetter ? analysis.coverLetter.split(/\s+/).filter(Boolean).length : 0;
   const hasRequiredSections = Boolean(
     analysis.summary &&
       analysis.requiredSkills.length &&
       analysis.strengths.length &&
       analysis.gaps.length &&
       analysis.suggestedBullets.length &&
-      analysis.coverLetter
+      (!includeCoverLetter || analysis.coverLetter)
   );
   const scoreInRange = analysis.matchScore >= 0 && analysis.matchScore <= 100;
   const summaryAvoidsScoreText = !SCORE_TEXT_PATTERN.test(analysis.summary);
@@ -71,20 +76,21 @@ export function qualityReviewAgent(input: JobIntakeInput, analysis: JobAnalysis)
   const missingKeywordsReasonable = analysis.missingKeywords.length <= analysis.requiredSkills.length + 3;
   const requiredSkillCoverageRatio = coverageRatio(analysis.requiredSkills, normalizedJobText);
   const missingKeywordCoverageRatio = coverageRatio(analysis.missingKeywords, normalizedJobText);
-  const coverLetterMentionsCompany = companyMentioned(input.companyName, normalizedCoverLetter);
-  const coverLetterMentionsRole = normalizedCoverLetter.includes(normalize(input.jobTitle));
-  const coverLetterAvoidsGenericOpening = !GENERIC_OPENINGS.some((opening) => normalizedCoverLetter.startsWith(opening));
-  const coverLetterAvoidsTemplateLanguage = templatePhraseHits(normalizedCoverLetter) <= 1;
-  const coverLetterUsesNamedResumeEvidence = usesNamedResumeEvidence(input.resumeText, normalizedCoverLetter);
-  const employerQuestionsAddressed = addressesEmployerQuestions(input.jobDescription, normalizedCoverLetter);
+  const coverLetterMentionsCompany = !includeCoverLetter || companyMentioned(input.companyName, normalizedCoverLetter);
+  const coverLetterMentionsRole = !includeCoverLetter || normalizedCoverLetter.includes(normalize(input.jobTitle));
+  const coverLetterAvoidsGenericOpening =
+    !includeCoverLetter || !GENERIC_OPENINGS.some((opening) => normalizedCoverLetter.startsWith(opening));
+  const coverLetterAvoidsTemplateLanguage = !includeCoverLetter || templatePhraseHits(normalizedCoverLetter) <= 1;
+  const coverLetterUsesNamedResumeEvidence = !includeCoverLetter || usesNamedResumeEvidence(input.resumeText, normalizedCoverLetter);
+  const employerQuestionsAddressed = !includeCoverLetter || addressesEmployerQuestions(input.jobDescription, normalizedCoverLetter);
   const strengthsGroundedRatio = groundingRatio(analysis.strengths, normalizedResumeText);
   const suggestedBulletsGroundedRatio = groundingRatio(analysis.suggestedBullets, normalizedResumeText);
 
   if (!hasRequiredSections) warnings.push("One or more required analysis sections are empty.");
   if (!scoreInRange) warnings.push("Match score is outside the expected 0-100 range.");
   if (!summaryAvoidsScoreText) warnings.push("Summary includes score text that should be displayed separately.");
-  if (coverLetterWordCount < 180) warnings.push("Cover letter is shorter than the minimum quality threshold.");
-  if (coverLetterWordCount > 380) warnings.push("Cover letter is longer than the target range.");
+  if (includeCoverLetter && coverLetterWordCount < 180) warnings.push("Cover letter is shorter than the minimum quality threshold.");
+  if (includeCoverLetter && coverLetterWordCount > 380) warnings.push("Cover letter is longer than the target range.");
   if (!bulletMetricsGrounded) warnings.push("Suggested bullets appear to include metrics not found in the resume text.");
   if (!missingKeywordsReasonable) warnings.push("Missing keyword list may be too broad for the extracted requirements.");
   if (requiredSkillCoverageRatio < 0.6) warnings.push("Required skills do not appear sufficiently grounded in the job description.");
@@ -109,16 +115,16 @@ export function qualityReviewAgent(input: JobIntakeInput, analysis: JobAnalysis)
   if (suggestedBulletsGroundedRatio < 0.8) {
     recommendations.push("Make suggested bullets more directly traceable to resume projects or experience.");
   }
-  if (!coverLetterMentionsCompany || !coverLetterMentionsRole) {
+  if (includeCoverLetter && (!coverLetterMentionsCompany || !coverLetterMentionsRole)) {
     recommendations.push("Personalize the cover letter opening with the company and role.");
   }
-  if (coverLetterWordCount < 250 || coverLetterWordCount > 350) {
+  if (includeCoverLetter && (coverLetterWordCount < 250 || coverLetterWordCount > 350)) {
     recommendations.push("Tune cover letter length closer to the 250-350 word target.");
   }
-  if (!coverLetterUsesNamedResumeEvidence) {
+  if (includeCoverLetter && !coverLetterUsesNamedResumeEvidence) {
     recommendations.push("Add a named project, employer, metric, or integration from the resume to make the cover letter less abstract.");
   }
-  if (!employerQuestionsAddressed) {
+  if (includeCoverLetter && !employerQuestionsAddressed) {
     recommendations.push("Where the JD lists employer questions, weave in supported answers such as RDBMS, JavaScript, full-stack, or framework experience.");
   }
 
@@ -127,14 +133,16 @@ export function qualityReviewAgent(input: JobIntakeInput, analysis: JobAnalysis)
     jobAlignment: average([requiredSkillCoverageRatio * 100, coverLetterMentionsRole ? 100 : 60]),
     resumeGrounding: average([strengthsGroundedRatio * 100, suggestedBulletsGroundedRatio * 100, bulletMetricsGrounded ? 100 : 40]),
     atsCoverage: average([missingKeywordsReasonable ? 100 : 65, missingKeywordCoverageRatio * 100]),
-    coverLetterQuality: average([
-      coverLetterLengthScore(coverLetterWordCount),
-      coverLetterMentionsCompany ? 100 : 60,
-      coverLetterAvoidsGenericOpening ? 100 : 60,
-      coverLetterAvoidsTemplateLanguage ? 100 : 60,
-      coverLetterUsesNamedResumeEvidence ? 100 : 65,
-      employerQuestionsAddressed ? 100 : 75
-    ])
+    coverLetterQuality: includeCoverLetter
+      ? average([
+          coverLetterLengthScore(coverLetterWordCount),
+          coverLetterMentionsCompany ? 100 : 60,
+          coverLetterAvoidsGenericOpening ? 100 : 60,
+          coverLetterAvoidsTemplateLanguage ? 100 : 60,
+          coverLetterUsesNamedResumeEvidence ? 100 : 65,
+          employerQuestionsAddressed ? 100 : 75
+        ])
+      : 100
   };
   const qualityScore = Math.round(average(Object.values(categoryScores)));
 
@@ -143,9 +151,7 @@ export function qualityReviewAgent(input: JobIntakeInput, analysis: JobAnalysis)
     passed:
       qualityScore >= 75 &&
       warnings.filter((warning) => !warning.includes("target range")).length <= 2 &&
-      coverLetterAvoidsTemplateLanguage &&
-      coverLetterUsesNamedResumeEvidence &&
-      employerQuestionsAddressed,
+      (!includeCoverLetter || (coverLetterAvoidsTemplateLanguage && coverLetterUsesNamedResumeEvidence && employerQuestionsAddressed)),
     warnings,
     recommendations,
     categoryScores,

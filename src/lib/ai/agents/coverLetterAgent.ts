@@ -1,14 +1,26 @@
-import type { JobAnalysis } from "@/lib/db/types";
+import type { JobAnalysis, JobIntakeInput } from "@/lib/db/types";
+import { generateCoverLetterWithLlm } from "@/lib/ai/llmClient";
 
-export function coverLetterAgent(analysis: JobAnalysis) {
-  return normalizeCoverLetterLength(analysis.coverLetter);
-}
+export type CoverLetterGenerationInput = {
+  input: JobIntakeInput;
+  analysis: JobAnalysis;
+  context?: string;
+  previousCoverLetter?: string;
+  revisionInstruction?: string;
+};
 
-function normalizeCoverLetterLength(letter: string) {
-  const words = letter.trim().split(/\s+/);
-  if (words.length <= 360) {
-    return letter.trim();
-  }
-
-  return `${words.slice(0, 350).join(" ")}.`;
+export async function coverLetterAgent({
+  input,
+  analysis,
+  context,
+  previousCoverLetter,
+  revisionInstruction
+}: CoverLetterGenerationInput) {
+  return generateCoverLetterWithLlm({
+    input,
+    analysis,
+    context,
+    previousCoverLetter,
+    revisionInstruction
+  });
 }

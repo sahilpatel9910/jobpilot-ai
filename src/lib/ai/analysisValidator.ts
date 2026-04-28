@@ -1,6 +1,5 @@
 import type { JobAnalysis } from "@/lib/db/types";
 
-const MIN_COVER_LETTER_WORDS = 180;
 const MAX_COVER_LETTER_WORDS = 380;
 const PERCENT_PATTERN = /\b\d{1,3}\s?%\b|\b\d{1,3}\s?\/\s?100\b/g;
 
@@ -17,7 +16,7 @@ export function normalizeAnalysis(raw: unknown): JobAnalysis {
     strengths: requiredList(parsed.strengths, "strengths"),
     gaps: requiredList(parsed.gaps, "gaps"),
     suggestedBullets: requiredList(parsed.suggestedBullets, "suggestedBullets"),
-    coverLetter: normalizeCoverLetter(String(parsed.coverLetter || ""))
+    coverLetter: ""
   };
 
   validateAnalysis(analysis);
@@ -89,7 +88,7 @@ function normalizeSummary(summary: string, matchScore: number) {
   return cleaned;
 }
 
-function normalizeCoverLetter(coverLetter: string) {
+export function normalizeCoverLetter(coverLetter: string) {
   const cleaned = coverLetter.trim();
   const words = cleaned.split(/\s+/).filter(Boolean);
 
@@ -105,12 +104,35 @@ function validateAnalysis(analysis: JobAnalysis) {
     throw new Error("LLM response matchScore must be between 0 and 100.");
   }
 
-  if (analysis.coverLetter.split(/\s+/).filter(Boolean).length < MIN_COVER_LETTER_WORDS) {
+  if (!analysis.summary) {
+    throw new Error("LLM response missing summary.");
+  }
+}
+
+export function normalizeCoverLetterResponse(raw: unknown) {
+  const parsed = parseRawCoverLetter(raw);
+  const coverLetter = normalizeCoverLetter(String(parsed.coverLetter || ""));
+  const wordCount = coverLetter.split(/\s+/).filter(Boolean).length;
+
+  if (wordCount < 180) {
     throw new Error("LLM response cover letter was too short.");
   }
 
-  if (!analysis.summary || !analysis.coverLetter) {
-    throw new Error("LLM response missing summary or cover letter.");
+  return coverLetter;
+}
+
+function parseRawCoverLetter(raw: unknown): { coverLetter?: string } {
+  if (typeof raw !== "string") {
+    throw new Error("LLM response did not include text content.");
+  }
+
+  const trimmed = stripCodeFence(raw.trim());
+  const jsonText = extractJsonObject(trimmed);
+
+  try {
+    return JSON.parse(jsonText) as { coverLetter?: string };
+  } catch {
+    throw new Error("LLM response was not valid JSON.");
   }
 }
 

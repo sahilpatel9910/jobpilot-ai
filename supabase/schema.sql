@@ -17,6 +17,11 @@ create table if not exists public.applications (
   missing_keywords jsonb not null default '[]'::jsonb,
   suggested_bullets jsonb not null default '[]'::jsonb,
   cover_letter text,
+  cover_letter_context text,
+  cover_letter_revision_instruction text,
+  cover_letter_generated_at timestamptz,
+  cover_letter_status text not null default 'not_generated'
+    check (cover_letter_status in ('not_generated', 'generated', 'regenerated')),
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -48,6 +53,25 @@ alter table if exists public.applications
 
 alter table if exists public.applications
   add column if not exists notes text;
+
+alter table if exists public.applications
+  add column if not exists cover_letter_context text;
+
+alter table if exists public.applications
+  add column if not exists cover_letter_revision_instruction text;
+
+alter table if exists public.applications
+  add column if not exists cover_letter_generated_at timestamptz;
+
+alter table if exists public.applications
+  add column if not exists cover_letter_status text not null default 'not_generated';
+
+alter table if exists public.applications
+  drop constraint if exists applications_cover_letter_status_check;
+
+alter table if exists public.applications
+  add constraint applications_cover_letter_status_check
+  check (cover_letter_status in ('not_generated', 'generated', 'regenerated'));
 
 create table if not exists public.profile_settings (
   id text primary key default 'default',

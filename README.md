@@ -41,6 +41,10 @@ If no LLM key/base URL is configured, `POST /api/analyse-job` returns determinis
 
 `POST /api/analyse-job` validates and sanitises input server-side before any AI workflow runs. The validation layer removes pasted HTML/script tags, rejects short or low-quality resume/job description text, detects likely swapped fields, scores prompt-injection risk, and enforces maximum input lengths. Invalid requests return HTTP 400 and do not call the LLM or save an application.
 
+## Cover letter workflow
+
+`POST /api/analyse-job` saves the resume/JD match analysis first without generating the final cover letter. Open the saved job detail page, review the gaps, optionally add clarification context, then use `POST /api/generate-cover-letter` from the UI to generate or regenerate the cover letter. The cover letter context, latest revision instruction, generated timestamp, and status are stored on the application record.
+
 ## Supabase
 
 Run `supabase/schema.sql` in the Supabase SQL editor. The API route uses `SUPABASE_SERVICE_ROLE_KEY` on the server to save analyses. Do not expose the service role key in frontend code.

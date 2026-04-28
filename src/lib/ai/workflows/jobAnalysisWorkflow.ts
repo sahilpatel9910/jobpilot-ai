@@ -3,7 +3,6 @@ import { createAgentTrace, persistAgentTrace } from "@/lib/ai/agentTrace";
 import { analysisRepairAgent } from "@/lib/ai/agents/analysisRepairAgent";
 import { applicationTrackerAgent } from "@/lib/ai/agents/applicationTrackerAgent";
 import { atsKeywordAgent } from "@/lib/ai/agents/atsKeywordAgent";
-import { coverLetterAgent } from "@/lib/ai/agents/coverLetterAgent";
 import { jobParserAgent } from "@/lib/ai/agents/jobParserAgent";
 import { qualityReviewAgent } from "@/lib/ai/agents/qualityReviewAgent";
 import { resumeMatcherAgent } from "@/lib/ai/agents/resumeMatcherAgent";
@@ -75,21 +74,14 @@ export async function runJobAnalysisWorkflow(
     })
   );
 
-  const coverLetter = coverLetterAgent(baseAnalysis);
-  traces.push(
-    createAgentTrace("Cover Letter Agent", "Normalize final tailored cover letter output.", {
-      wordCount: coverLetter.split(/\s+/).filter(Boolean).length
-    })
-  );
-
   let analysis: JobAnalysis = {
     ...baseAnalysis,
     ...ats,
     ...matcher,
-    coverLetter
+    coverLetter: ""
   };
 
-  let qualityReview = qualityReviewAgent(normalizedInput, analysis);
+  let qualityReview = qualityReviewAgent(normalizedInput, analysis, { includeCoverLetter: false });
   traces.push(
     createAgentTrace("Quality Review Agent", "Review final analysis for consistency, grounding, and cover-letter quality.", {
       qualityScore: qualityReview.qualityScore,
@@ -116,12 +108,11 @@ export async function runJobAnalysisWorkflow(
           repairedBy: repair.repairedBy,
           attemptedWarnings: repair.attemptedWarnings,
           attemptedRecommendations: repair.attemptedRecommendations,
-          repairedMatchScore: analysis.matchScore,
-          coverLetterWordCount: analysis.coverLetter.split(/\s+/).filter(Boolean).length
+          repairedMatchScore: analysis.matchScore
         })
       );
 
-      qualityReview = qualityReviewAgent(normalizedInput, analysis);
+      qualityReview = qualityReviewAgent(normalizedInput, analysis, { includeCoverLetter: false });
       traces.push(
         createAgentTrace("Quality Review Agent (Repair Pass)", "Re-review repaired analysis before persistence.", {
           qualityScore: qualityReview.qualityScore,

@@ -14,8 +14,8 @@ export default function NewJobPage() {
         <p className="text-sm font-semibold text-pilot-700">Job analysis</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-normal">Paste a role and resume</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          The workflow runs parser, matcher, ATS keyword, cover letter, and tracker agents. With no LLM key,
-          the app returns mock analysis so the full UI stays usable.
+          The workflow runs parser, matcher, ATS keyword, quality review, and tracker agents first. After saving,
+          open the job detail page to add gap context and generate the cover letter as a second step.
         </p>
       </div>
       <JobIntakeForm onResult={setResult} />
@@ -33,6 +33,14 @@ export default function NewJobPage() {
             {result.persistenceError ? <span className="text-rose-700"> · {result.persistenceError}</span> : null}
           </div>
           <AnalysisResult analysis={result.analysis} />
+          {result.application ? (
+            <a
+              href={`/jobs/${result.application.id}`}
+              className="inline-flex rounded-lg bg-pilot-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-pilot-700"
+            >
+              Review gaps and generate cover letter
+            </a>
+          ) : null}
         </div>
       ) : null}
     </div>

@@ -1,9 +1,9 @@
+import type { ReactNode } from "react";
 import type { JobAnalysis } from "@/lib/db/types";
-import { CoverLetterPreview } from "@/components/job/CoverLetterPreview";
 import { KeywordGapList } from "@/components/job/KeywordGapList";
 import { MatchScoreCard } from "@/components/job/MatchScoreCard";
 
-export function AnalysisResult({ analysis }: { analysis: JobAnalysis }) {
+export function AnalysisResult({ analysis, coverLetterSlot }: { analysis: JobAnalysis; coverLetterSlot?: ReactNode }) {
   return (
     <div className="grid gap-5 xl:grid-cols-[320px_1fr]">
       <div className="space-y-5">
@@ -26,6 +26,7 @@ export function AnalysisResult({ analysis }: { analysis: JobAnalysis }) {
           </div>
         </section>
         <TwoColumnList titleA="Strengths from resume" titleB="Weaknesses and gaps" listA={analysis.strengths} listB={analysis.gaps} />
+        {coverLetterSlot}
         <section className="rounded-lg border border-slateLine bg-white p-5 shadow-soft">
           <h2 className="text-base font-semibold">Suggested resume bullet improvements</h2>
           <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-700">
@@ -36,7 +37,6 @@ export function AnalysisResult({ analysis }: { analysis: JobAnalysis }) {
             ))}
           </ul>
         </section>
-        <CoverLetterPreview coverLetter={analysis.coverLetter} />
       </div>
     </div>
   );

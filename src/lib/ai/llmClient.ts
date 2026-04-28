@@ -1,10 +1,16 @@
 import type { JobAnalysis, JobIntakeInput } from "@/lib/db/types";
 import type { QualityReviewResult } from "@/lib/ai/agents/qualityReviewAgent";
-import { normalizeAnalysis } from "@/lib/ai/analysisValidator";
-import { buildAnalysisRepairPrompt, buildJobAnalysisPrompt, SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { normalizeAnalysis, normalizeCoverLetterResponse } from "@/lib/ai/analysisValidator";
+import { buildAnalysisRepairPrompt, buildCoverLetterPrompt, buildJobAnalysisPrompt, SYSTEM_PROMPT } from "@/lib/ai/prompts";
 
 type LlmResult = {
   analysis: JobAnalysis;
+  mode: "mock" | "llm";
+  provider: LlmProviderName | "mock";
+};
+
+type CoverLetterLlmResult = {
+  coverLetter: string;
   mode: "mock" | "llm";
   provider: LlmProviderName | "mock";
 };
@@ -29,7 +35,7 @@ export async function generateAnalysisWithLlm(input: JobIntakeInput): Promise<Ll
   for (const provider of providers) {
     try {
       return {
-        analysis: await callProvider(provider, prompt),
+        analysis: normalizeAnalysis(await callProvider(provider, prompt)),
         mode: "llm",
         provider
       };
@@ -53,7 +59,53 @@ export async function repairAnalysisWithLlm({
   provider: LlmProviderName;
 }) {
   const prompt = buildAnalysisRepairPrompt(input, analysis, review);
-  return callProvider(provider, prompt);
+  return normalizeAnalysis(await callProvider(provider, prompt));
+}
+
+export async function generateCoverLetterWithLlm({
+  input,
+  analysis,
+  context,
+  previousCoverLetter,
+  revisionInstruction
+}: {
+  input: JobIntakeInput;
+  analysis: JobAnalysis;
+  context?: string;
+  previousCoverLetter?: string;
+  revisionInstruction?: string;
+}): Promise<CoverLetterLlmResult> {
+  if (!hasLlmConfig()) {
+    return {
+      coverLetter: createMockCoverLetter(input, analysis, context, revisionInstruction),
+      mode: "mock",
+      provider: "mock"
+    };
+  }
+
+  const prompt = buildCoverLetterPrompt({
+    input,
+    analysis,
+    context,
+    previousCoverLetter,
+    revisionInstruction
+  });
+  const providers = getProvidersToTry();
+  const errors: string[] = [];
+
+  for (const provider of providers) {
+    try {
+      return {
+        coverLetter: normalizeCoverLetterResponse(await callProvider(provider, prompt)),
+        mode: "llm",
+        provider
+      };
+    } catch (error) {
+      errors.push(`${provider}: ${error instanceof Error ? error.message : "unknown error"}`);
+    }
+  }
+
+  throw new Error(`All configured LLM providers failed. ${errors.join(" | ")}`);
 }
 
 function getConfiguredProviders() {
@@ -163,7 +215,7 @@ async function callAnthropic({
     ? payload.content.find((part: { type?: string; text?: string }) => part.type === "text")?.text
     : null;
 
-  return normalizeAnalysis(text);
+  return text || "";
 }
 
 async function callOpenAiCompatible({
@@ -199,7 +251,7 @@ async function callOpenAiCompatible({
   }
 
   const payload = await response.json();
-  return normalizeAnalysis(payload.choices?.[0]?.message?.content);
+  return String(payload.choices?.[0]?.message?.content || "");
 }
 
 async function callOllama({
@@ -231,7 +283,7 @@ async function callOllama({
   }
 
   const payload = await response.json();
-  return normalizeAnalysis(payload.message?.content);
+  return String(payload.message?.content || "");
 }
 
 export function createMockAnalysis(input: JobIntakeInput): JobAnalysis {
@@ -260,6 +312,33 @@ export function createMockAnalysis(input: JobIntakeInput): JobAnalysis {
       "Improved project clarity by documenting workflows, implementation decisions, and measurable outcomes for stakeholders.",
       "Built user-facing features with attention to reliability, maintainability, and clean handoff between frontend and backend services."
     ],
-    coverLetter: `Dear Hiring Team,\n\nI am excited to apply for the ${input.jobTitle} role at ${input.companyName}. My experience building practical software projects has strengthened my ability to understand requirements, translate them into clear technical plans, and deliver maintainable features that support real user workflows.\n\nYour role stands out because it calls for a candidate who can combine technical execution with structured problem solving. In my recent work, I have focused on building full-stack applications, designing clean interfaces, and connecting product requirements to reliable implementation. I am comfortable working across frontend and backend concerns, communicating tradeoffs clearly, and improving a product through iterative delivery.\n\nI would bring a hands-on engineering mindset, attention to detail, and a strong bias toward useful outcomes. I am especially interested in contributing to a team where thoughtful product decisions, clean code, and consistent execution matter.\n\nThank you for considering my application. I would welcome the opportunity to discuss how my background and project experience align with the needs of this role.\n\nSincerely,\nSahil Patel`
+    coverLetter: ""
   };
+}
+
+function createMockCoverLetter(
+  input: JobIntakeInput,
+  analysis: JobAnalysis,
+  context?: string,
+  revisionInstruction?: string
+) {
+  const contextSentence = context
+    ? "I have also considered the additional context provided around role fit and can position that carefully without overstating unsupported experience."
+    : "The analysis highlights a practical fit across the role requirements and my current project experience.";
+  const revisionSentence = revisionInstruction
+    ? "I have adjusted the draft to reflect the requested tone and emphasis while keeping the claims grounded."
+    : "This draft keeps the tone professional, confident, and grounded in the resume.";
+
+  return `Dear Hiring Team,
+
+I am applying for the ${input.jobTitle} role at ${input.companyName} because my recent full-stack project work aligns closely with the practical delivery, communication, and technical ownership reflected in the job description. My background includes building user-facing workflows, connecting frontend and backend services, and documenting implementation decisions so projects remain maintainable.
+
+The strongest areas of fit are ${analysis.strengths.slice(0, 2).join(" ")} I can bring this same structured approach to the responsibilities in this role, especially where the team needs someone who can translate requirements into clean, reliable software. ${contextSentence}
+
+I also see clear areas to tailor my resume and discussion points around the role. The missing or weaker keywords identified in the analysis include ${analysis.missingKeywords.slice(0, 4).join(", ") || "role-specific tooling"}, and I would position those honestly through related project evidence rather than overclaiming. ${revisionSentence}
+
+I would be glad to discuss how my full-stack experience, delivery mindset, and ability to learn quickly can support the team.
+
+Sincerely,
+Sahil Patel`;
 }

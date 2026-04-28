@@ -27,7 +27,8 @@ export async function applicationTrackerAgent(
         gaps: analysis.gaps,
         missing_keywords: analysis.missingKeywords,
         suggested_bullets: analysis.suggestedBullets,
-        cover_letter: analysis.coverLetter
+        cover_letter: null,
+        cover_letter_status: "not_generated"
       })
       .select()
       .single<ApplicationRecord>();

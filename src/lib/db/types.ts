@@ -29,6 +29,8 @@ export type JobAnalysis = {
   coverLetter: string;
 };
 
+export type CoverLetterStatus = "not_generated" | "generated" | "regenerated";
+
 export type ApplicationRecord = {
   id: string;
   company_name: string;
@@ -45,6 +47,10 @@ export type ApplicationRecord = {
   missing_keywords: string[];
   suggested_bullets: string[];
   cover_letter: string | null;
+  cover_letter_context: string | null;
+  cover_letter_revision_instruction: string | null;
+  cover_letter_generated_at: string | null;
+  cover_letter_status: CoverLetterStatus;
   notes: string | null;
   created_at: string;
   updated_at: string;
