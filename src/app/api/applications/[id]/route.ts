@@ -23,10 +23,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Supabase is not configured." }, { status: 400 });
   }
 
-  const body = (await request.json()) as { status?: string };
+  const body = (await request.json()) as { status?: string; note?: string };
   if (!body.status || !APPLICATION_STATUSES.includes(body.status as ApplicationStatus)) {
     return NextResponse.json({ error: "Invalid status." }, { status: 400 });
   }
+  const note = typeof body.note === "string" ? body.note.trim().slice(0, 500) : null;
 
   const { id } = await params;
   const supabase = createSupabaseServerClient();
@@ -55,7 +56,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     await supabase.from("application_status_history").insert({
       application_id: id,
       from_status: existing.status,
-      to_status: body.status as ApplicationStatus
+      to_status: body.status as ApplicationStatus,
+      note
     });
   }
 

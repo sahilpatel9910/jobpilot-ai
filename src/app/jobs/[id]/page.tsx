@@ -7,6 +7,7 @@ import { ApplicationActions } from "@/components/job/ApplicationActions";
 import { ApplicationNotes } from "@/components/job/ApplicationNotes";
 import { ApplicationStatusBadge } from "@/components/job/ApplicationStatusBadge";
 import { CoverLetterWorkspace } from "@/components/job/CoverLetterWorkspace";
+import { NextActionPanel } from "@/components/job/NextActionPanel";
 import { StatusHistory } from "@/components/job/StatusHistory";
 import { StatusSelect } from "@/components/job/StatusSelect";
 import { getApplication, listAgentRuns, listApplicationStatusHistory } from "@/lib/db/applications";
@@ -56,29 +57,33 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         </div>
       </section>
 
-      <AnalysisResult
-        analysis={{
-          summary: application.summary || "",
-          requiredSkills: application.required_skills,
-          matchScore: application.match_score || 0,
-          missingKeywords: application.missing_keywords,
-          strengths: application.strengths,
-          gaps: application.gaps,
-          suggestedBullets: application.suggested_bullets,
-          coverLetter: ""
-        }}
-        coverLetterSlot={
-          <CoverLetterWorkspace
-            applicationId={application.id}
-            initialCoverLetter={application.cover_letter || ""}
-            initialContext={application.cover_letter_context || ""}
-            initialRevisionInstruction={application.cover_letter_revision_instruction || ""}
-            initialStatus={application.cover_letter_status || "not_generated"}
-          />
-        }
-      />
+      <NextActionPanel application={application} />
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div id="analysis">
+        <AnalysisResult
+          analysis={{
+            summary: application.summary || "",
+            requiredSkills: application.required_skills,
+            matchScore: application.match_score || 0,
+            missingKeywords: application.missing_keywords,
+            strengths: application.strengths,
+            gaps: application.gaps,
+            suggestedBullets: application.suggested_bullets,
+            coverLetter: ""
+          }}
+          coverLetterSlot={
+            <CoverLetterWorkspace
+              applicationId={application.id}
+              initialCoverLetter={application.cover_letter || ""}
+              initialContext={application.cover_letter_context || ""}
+              initialRevisionInstruction={application.cover_letter_revision_instruction || ""}
+              initialStatus={application.cover_letter_status || "not_generated"}
+            />
+          }
+        />
+      </div>
+
+      <div id="tracking" className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <ApplicationNotes applicationId={application.id} initialNotes={application.notes || ""} />
         <StatusHistory history={history} />
       </div>

@@ -104,7 +104,7 @@ export function CoverLetterWorkspace({
   }
 
   return (
-    <section className="rounded-lg border border-slateLine bg-white shadow-soft">
+    <section id="cover-letter" className="rounded-lg border border-slateLine bg-white shadow-soft">
       <div className="border-b border-slateLine px-5 py-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>

@@ -17,7 +17,7 @@ export function ApplicationActions({ applicationId }: { applicationId: string })
     const response = await fetch(`/api/applications/${applicationId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "Archived" })
+      body: JSON.stringify({ status: "Archived", note: "Archived from job detail actions." })
     });
 
     setIsArchiving(false);
