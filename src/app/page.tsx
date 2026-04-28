@@ -4,6 +4,8 @@ import { listApplications } from "@/lib/db/applications";
 import { ApplicationBoard } from "@/components/dashboard/ApplicationBoard";
 import { StatsCards } from "@/components/dashboard/StatsCards";
 
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const applications = await listApplications();
 

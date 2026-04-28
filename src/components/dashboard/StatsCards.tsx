@@ -1,21 +1,24 @@
-import { APPLICATION_STATUSES, type ApplicationRecord } from "@/lib/db/types";
+import type { ApplicationRecord } from "@/lib/db/types";
 
 export function StatsCards({ applications }: { applications: ApplicationRecord[] }) {
-  const analysed = applications.filter((application) => application.status === "Analysed").length;
-  const interviews = applications.filter((application) => application.status === "Interview").length;
+  const activeApplications = applications.filter((application) => application.status !== "Archived");
+  const scoredApplications = activeApplications.filter((application) => typeof application.match_score === "number");
+  const analysed = activeApplications.filter((application) => application.status === "Analysed").length;
+  const interviews = activeApplications.filter((application) => application.status === "Interview").length;
+  const archived = applications.filter((application) => application.status === "Archived").length;
   const averageScore =
-    applications.length === 0
+    scoredApplications.length === 0
       ? 0
       : Math.round(
-          applications.reduce((total, application) => total + (application.match_score || 0), 0) / applications.length
+          scoredApplications.reduce((total, application) => total + (application.match_score || 0), 0) / scoredApplications.length
         );
 
   const stats = [
-    { label: "Tracked jobs", value: applications.length },
+    { label: "Active jobs", value: activeApplications.length },
     { label: "Analysed", value: analysed },
     { label: "Interviews", value: interviews },
-    { label: "Avg. match", value: `${averageScore}%` },
-    { label: "Statuses", value: APPLICATION_STATUSES.length }
+    { label: "Archived", value: archived },
+    { label: "Avg. match", value: `${averageScore}%` }
   ];
 
   return (

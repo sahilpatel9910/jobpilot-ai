@@ -50,7 +50,7 @@ export function ApplicationActions({ applicationId }: { applicationId: string })
       return;
     }
 
-    router.push("/dashboard");
+    router.replace("/dashboard");
     router.refresh();
   }
 

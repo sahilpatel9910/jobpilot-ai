@@ -28,14 +28,29 @@ export function AnalysisResult({ analysis, coverLetterSlot }: { analysis: JobAna
         <TwoColumnList titleA="Strengths from resume" titleB="Weaknesses and gaps" listA={analysis.strengths} listB={analysis.gaps} />
         {coverLetterSlot}
         <section className="rounded-lg border border-slateLine bg-white p-5 shadow-soft">
-          <h2 className="text-base font-semibold">Suggested resume bullet improvements</h2>
-          <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-700">
-            {analysis.suggestedBullets.map((bullet) => (
-              <li key={bullet} className="rounded-lg border border-slateLine bg-surface p-3">
-                {bullet}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-base font-semibold">Copy-ready resume bullets</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+                Use these as targeted edits for this role. Keep only bullets that are true to your experience.
+              </p>
+            </div>
+            <span className="w-fit rounded-full bg-surface px-3 py-1 text-xs font-semibold text-slate-600">
+              {analysis.suggestedBullets.length} suggestions
+            </span>
+          </div>
+          <ol className="mt-4 grid gap-3">
+            {analysis.suggestedBullets.map((bullet, index) => (
+              <li key={bullet} className="rounded-lg border border-slateLine bg-surface p-4">
+                <div className="flex gap-3">
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-pilot-600 text-xs font-bold text-white">
+                    {index + 1}
+                  </span>
+                  <p className="text-sm leading-6 text-slate-700">{bullet}</p>
+                </div>
               </li>
             ))}
-          </ul>
+          </ol>
         </section>
       </div>
     </div>

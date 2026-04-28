@@ -61,8 +61,6 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         <StatusHistory history={history} />
       </div>
 
-      <AgentTrace agentRuns={agentRuns} />
-
       <AnalysisResult
         analysis={{
           summary: application.summary || "",
@@ -84,6 +82,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           />
         }
       />
+
+      <AgentTrace agentRuns={agentRuns} />
     </div>
   );
 }
