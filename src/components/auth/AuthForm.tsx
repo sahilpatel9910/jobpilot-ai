@@ -104,6 +104,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           {isLogin ? "Sign up" : "Log in"}
         </Link>
       </p>
+      <p className="mt-3 text-center text-sm">
+        <Link href="/jobs/new" className="font-semibold text-slate-600 hover:text-ink">
+          Continue browsing without logging in
+        </Link>
+      </p>
     </section>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { Loader2, LockKeyhole, Sparkles } from "lucide-react";
 import type { AnalyseJobResponse, JobIntakeInput } from "@/lib/db/types";
 
 const sampleJob =
@@ -33,6 +34,7 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [requiresLogin, setRequiresLogin] = useState(false);
   const [savedResumeText, setSavedResumeText] = useState("");
   const [resumeStatus, setResumeStatus] = useState<"loading" | "empty" | "loaded" | "saving" | "saved" | "failed">(
     "loading"
@@ -46,6 +48,10 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
       try {
         const response = await fetch("/api/profile/resume");
         const payload = (await response.json()) as { resumeText?: string };
+        if (response.status === 401) {
+          if (isMounted) setResumeStatus("empty");
+          return;
+        }
         const resumeText = payload.resumeText || "";
 
         if (!isMounted) return;
@@ -76,6 +82,7 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
     setValidationErrors([]);
     setValidationWarnings([]);
     setErrorDetails(null);
+    setRequiresLogin(false);
 
     const response = await fetch("/api/analyse-job", {
       method: "POST",
@@ -87,6 +94,11 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
 
     if (!response.ok) {
       setIsSubmitting(false);
+      if (response.status === 401) {
+        setRequiresLogin(true);
+        setError(null);
+        return;
+      }
       setError(payload.error || "Unable to analyse this job.");
       setValidationErrors(payload.errors || []);
       setValidationWarnings(payload.warnings || []);
@@ -218,6 +230,37 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
             </ul>
           ) : null}
           {errorDetails ? <p className="mt-1 text-xs text-rose-600">{errorDetails}</p> : null}
+        </div>
+      ) : null}
+      {requiresLogin ? (
+        <div className="mt-4 rounded-lg border border-pilot-100 bg-pilot-50 p-4 text-sm text-slate-700">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-pilot-700">
+                <LockKeyhole size={17} aria-hidden="true" />
+              </span>
+              <div>
+                <p className="font-semibold text-ink">Log in to save this analysis</p>
+                <p className="mt-1 leading-6">
+                  You can browse and fill the form without an account. Saving analyses, resumes, cover letters, and tracker data requires a private workspace.
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Link
+                href="/login?next=/jobs/new"
+                className="inline-flex items-center justify-center rounded-lg border border-slateLine bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-surface"
+              >
+                Log in
+              </Link>
+              <Link
+                href="/signup?next=/jobs/new"
+                className="inline-flex items-center justify-center rounded-lg bg-pilot-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-pilot-700"
+              >
+                Sign up
+              </Link>
+            </div>
+          </div>
         </div>
       ) : null}
       {validationWarnings.length > 0 ? (

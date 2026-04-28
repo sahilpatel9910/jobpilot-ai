@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const protectedPagePrefixes = ["/", "/dashboard", "/jobs"];
+const protectedPagePrefixes = ["/dashboard"];
 const authPagePrefixes = ["/login", "/signup"];
 
 export async function middleware(request: NextRequest) {
@@ -31,8 +31,8 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const isAuthPage = authPagePrefixes.some((prefix) => pathname.startsWith(prefix));
-  const isProtectedPage =
-    pathname === "/" || protectedPagePrefixes.some((prefix) => prefix !== "/" && pathname.startsWith(prefix));
+  const isProtectedJobDetail = pathname.startsWith("/jobs/") && pathname !== "/jobs/new";
+  const isProtectedPage = protectedPagePrefixes.some((prefix) => pathname.startsWith(prefix)) || isProtectedJobDetail;
 
   if (!user && isProtectedPage && !isAuthPage) {
     const url = request.nextUrl.clone();

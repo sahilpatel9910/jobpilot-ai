@@ -44,11 +44,28 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           ) : (
             <div className="rounded-lg border border-slateLine bg-surface p-3 text-sm text-slate-600">
-              <p className="font-medium text-ink">Private workspace</p>
-              <p className="mt-1 text-xs leading-5">Log in to access your own dashboard.</p>
+              <p className="font-medium text-ink">Browse without login</p>
+              <p className="mt-1 text-xs leading-5">Sign in when you are ready to save an analysis.</p>
             </div>
           )}
-          {user ? <LogoutButton /> : null}
+          {user ? (
+            <LogoutButton />
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                href="/login"
+                className="inline-flex items-center justify-center rounded-lg border border-slateLine bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-surface"
+              >
+                Log in
+              </Link>
+              <Link
+                href="/signup"
+                className="inline-flex items-center justify-center rounded-lg bg-pilot-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-pilot-700"
+              >
+                Sign up
+              </Link>
+            </div>
+          )}
         </div>
       </aside>
 

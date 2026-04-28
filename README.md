@@ -13,6 +13,16 @@ Open `http://localhost:3000`.
 
 The app works in mock AI mode by default, so no LLM key is required for the UI and workflow.
 
+## Product flow
+
+JobPilot uses a browse-first auth flow:
+
+- Anyone can view the overview page.
+- Anyone can open `/jobs/new` and inspect/fill the analysis form.
+- Login is required when the user tries to run and save an analysis.
+- `/dashboard` and saved job detail pages are private.
+- Each logged-in user sees only their own resume profile, applications, notes, cover letters, status history, and agent traces.
+
 ## Environment variables
 
 Create `.env.local` for local development:
@@ -55,4 +65,22 @@ Auth pages:
 - `/login`
 - `/signup`
 
+For local or production testing:
+
+1. Run `supabase/schema.sql`.
+2. Create an account through `/signup`.
+3. Run an analysis from `/jobs/new`.
+4. Confirm the saved job appears in `/dashboard`.
+5. Log out and sign in as a second user to confirm the dashboard is empty.
+
 For a fresh MVP reset, delete old shared rows before enforcing `user_id not null`. The project database was cleared during the auth migration.
+
+## Validation tests
+
+```bash
+npm run test:validation
+npm run typecheck
+npm run build
+```
+
+The validation runner checks accepted real-world job descriptions across industries, swapped resume/JD fields, prompt injection, random text, HTML/script cleanup, long input, and short low-quality input.

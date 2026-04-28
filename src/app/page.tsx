@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ArrowRight, ClipboardCheck, FileText, Gauge, Sparkles } from "lucide-react";
 import { listApplications } from "@/lib/db/applications";
 import { ApplicationBoard } from "@/components/dashboard/ApplicationBoard";
@@ -10,8 +9,6 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
-
   const applications = await listApplications();
 
   return (
@@ -66,8 +63,25 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <StatsCards applications={applications} />
-      <ApplicationBoard applications={applications} />
+      {user ? (
+        <>
+          <StatsCards applications={applications} />
+          <ApplicationBoard applications={applications} />
+        </>
+      ) : (
+        <section className="grid gap-4 md:grid-cols-3">
+          {[
+            { title: "Browse first", text: "Open the analysis form and inspect the workflow before creating an account." },
+            { title: "Sign in to save", text: "When you run an analysis, JobPilot asks you to log in so the result belongs only to you." },
+            { title: "Private tracker", text: "Your dashboard, resume profile, notes, cover letters, and traces are isolated by account." }
+          ].map((item) => (
+            <div key={item.title} className="rounded-lg border border-slateLine bg-white p-5 shadow-soft">
+              <h2 className="text-base font-semibold">{item.title}</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{item.text}</p>
+            </div>
+          ))}
+        </section>
+      )}
     </div>
   );
 }
