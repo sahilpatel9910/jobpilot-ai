@@ -2,18 +2,39 @@ import { NextResponse } from "next/server";
 import { toUserFacingLlmError } from "@/lib/ai/analysisValidator";
 import { runJobAnalysisWorkflow } from "@/lib/ai/workflows/jobAnalysisWorkflow";
 import type { JobIntakeInput } from "@/lib/db/types";
+import { validateAnalysisInput } from "@/lib/security/validateAnalysisInput";
 
 export async function POST(request: Request) {
   const body = (await request.json()) as Partial<JobIntakeInput>;
-  const validationError = validateInput(body);
+  const validation = validateAnalysisInput(body);
 
-  if (validationError) {
-    return NextResponse.json({ error: validationError }, { status: 400 });
+  if (!validation.result.isValid) {
+    return NextResponse.json(
+      {
+        error: validation.result.errors[0] || "Please check the resume and job description before analysis.",
+        errors: validation.result.errors,
+        warnings: validation.result.warnings,
+        validation: {
+          resumeClassification: validation.result.resumeClassification,
+          jobDescriptionClassification: validation.result.jobDescriptionClassification,
+          riskLevel: validation.result.riskLevel,
+          detectedIssues: validation.result.detectedIssues
+        }
+      },
+      { status: 400 }
+    );
   }
 
   try {
-    const response = await runJobAnalysisWorkflow(body as JobIntakeInput);
-    return NextResponse.json(response);
+    const response = await runJobAnalysisWorkflow(validation.sanitizedInput, validation.result);
+    return NextResponse.json({
+      ...response,
+      validation: {
+        warnings: validation.result.warnings,
+        riskLevel: validation.result.riskLevel,
+        sanitizedResumeText: validation.result.sanitizedResumeText
+      }
+    });
   } catch (error) {
     return NextResponse.json(
       {
@@ -23,12 +44,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
-
-function validateInput(body: Partial<JobIntakeInput>) {
-  if (!body.companyName?.trim()) return "Company name is required.";
-  if (!body.jobTitle?.trim()) return "Job title is required.";
-  if (!body.jobDescription?.trim()) return "Job description is required.";
-  if (!body.resumeText?.trim()) return "Resume text is required.";
-  return null;
 }

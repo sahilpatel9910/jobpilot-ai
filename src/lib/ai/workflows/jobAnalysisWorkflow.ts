@@ -8,17 +8,35 @@ import { jobParserAgent } from "@/lib/ai/agents/jobParserAgent";
 import { qualityReviewAgent } from "@/lib/ai/agents/qualityReviewAgent";
 import { resumeMatcherAgent } from "@/lib/ai/agents/resumeMatcherAgent";
 import { generateAnalysisWithLlm } from "@/lib/ai/llmClient";
+import type { InputValidationResult } from "@/lib/security/types";
 
-export async function runJobAnalysisWorkflow(input: JobIntakeInput): Promise<AnalyseJobResponse> {
+export async function runJobAnalysisWorkflow(
+  input: JobIntakeInput,
+  validationResult?: InputValidationResult
+): Promise<AnalyseJobResponse> {
   const parsedJob = jobParserAgent(input);
-  const traces = [
+  const traces = validationResult
+    ? [
+        createAgentTrace("Input Validation", "Validate, sanitise, and risk-score user input before analysis agents run.", {
+          inputValidation: validationResult.isValid ? "Passed" : "Failed",
+          sanitisation: "Passed",
+          promptInjectionRisk: titleCase(validationResult.riskLevel),
+          resumeClassification: validationResult.resumeClassification,
+          jobDescriptionClassification: validationResult.jobDescriptionClassification,
+          warningCount: validationResult.warnings.length,
+          detectedIssues: validationResult.detectedIssues
+        })
+      ]
+    : [];
+
+  traces.push(
     createAgentTrace("Job Parser Agent", "Normalize company, title, and seniority signal from job intake.", {
       normalizedCompanyName: parsedJob.normalizedCompanyName,
       normalizedJobTitle: parsedJob.normalizedJobTitle,
       descriptionWordCount: parsedJob.descriptionWordCount,
       detectedSeniority: parsedJob.detectedSeniority
     })
-  ];
+  );
 
   const normalizedInput = {
     ...input,
@@ -148,4 +166,8 @@ export async function runJobAnalysisWorkflow(input: JobIntakeInput): Promise<Ana
     llmProvider: provider,
     ...persistence
   };
+}
+
+function titleCase(value: string) {
+  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 }

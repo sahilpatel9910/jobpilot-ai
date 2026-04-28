@@ -37,6 +37,10 @@ OLLAMA_MODEL=llama3.1
 
 If no LLM key/base URL is configured, `POST /api/analyse-job` returns deterministic mock analysis. In `auto` mode, configured providers are tried in this order: Anthropic, OpenAI, Groq, Ollama.
 
+## Input validation
+
+`POST /api/analyse-job` validates and sanitises input server-side before any AI workflow runs. The validation layer removes pasted HTML/script tags, rejects short or low-quality resume/job description text, detects likely swapped fields, scores prompt-injection risk, and enforces maximum input lengths. Invalid requests return HTTP 400 and do not call the LLM or save an application.
+
 ## Supabase
 
 Run `supabase/schema.sql` in the Supabase SQL editor. The API route uses `SUPABASE_SERVICE_ROLE_KEY` on the server to save analyses. Do not expose the service role key in frontend code.

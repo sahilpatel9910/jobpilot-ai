@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { classifyInputText, countWords } from "@/lib/security/inputClassifier";
+import { MAX_RESUME_CHARACTERS, sanitizeTextField } from "@/lib/security/inputSanitizer";
 import { createSupabaseServerClient, hasSupabaseServerConfig } from "@/lib/supabase/server";
 
 const PROFILE_ID = "default";
@@ -28,10 +30,27 @@ export async function PUT(request: Request) {
   }
 
   const body = (await request.json()) as { resumeText?: string };
-  const resumeText = body.resumeText?.trim();
+  const sanitized = sanitizeTextField(body.resumeText, MAX_RESUME_CHARACTERS);
+  const resumeText = sanitized.value;
 
   if (!resumeText) {
     return NextResponse.json({ error: "Resume text is required." }, { status: 400 });
+  }
+
+  if (sanitized.lengthExceeded) {
+    return NextResponse.json({ error: "Resume text is too long. Please keep it under 30,000 characters." }, { status: 400 });
+  }
+
+  if (countWords(resumeText) < 40) {
+    return NextResponse.json(
+      { error: "This does not look like a complete resume. Please paste your resume with skills, projects, experience, or education." },
+      { status: 400 }
+    );
+  }
+
+  const classification = classifyInputText(resumeText);
+  if (classification.classification === "job_description" || classification.classification === "invalid") {
+    return NextResponse.json({ error: "This does not look like a resume. Please paste your resume in the resume field." }, { status: 400 });
   }
 
   const supabase = createSupabaseServerClient();

@@ -24,6 +24,9 @@ export type QualityReviewResult = {
     coverLetterMentionsCompany: boolean;
     coverLetterMentionsRole: boolean;
     coverLetterAvoidsGenericOpening: boolean;
+    coverLetterAvoidsTemplateLanguage: boolean;
+    coverLetterUsesNamedResumeEvidence: boolean;
+    employerQuestionsAddressed: boolean;
     strengthsGroundedRatio: number;
     suggestedBulletsGroundedRatio: number;
   };
@@ -34,7 +37,17 @@ const METRIC_PATTERN = /\b\d+[%x]?\b|\b\d+\s?(users|customers|applications|proje
 const GENERIC_OPENINGS = [
   "i am writing to apply",
   "please accept my application",
-  "i believe i would be a good fit"
+  "i believe i would be a good fit",
+  "your focus",
+  "your mission",
+  "your commitment"
+];
+const TEMPLATE_PHRASES = [
+  "aligns perfectly with my passion",
+  "continued success",
+  "i would welcome the opportunity to discuss",
+  "thank you for considering my application",
+  "i am confident i can contribute immediately"
 ];
 
 export function qualityReviewAgent(input: JobIntakeInput, analysis: JobAnalysis): QualityReviewResult {
@@ -58,9 +71,12 @@ export function qualityReviewAgent(input: JobIntakeInput, analysis: JobAnalysis)
   const missingKeywordsReasonable = analysis.missingKeywords.length <= analysis.requiredSkills.length + 3;
   const requiredSkillCoverageRatio = coverageRatio(analysis.requiredSkills, normalizedJobText);
   const missingKeywordCoverageRatio = coverageRatio(analysis.missingKeywords, normalizedJobText);
-  const coverLetterMentionsCompany = normalizedCoverLetter.includes(normalize(input.companyName));
+  const coverLetterMentionsCompany = companyMentioned(input.companyName, normalizedCoverLetter);
   const coverLetterMentionsRole = normalizedCoverLetter.includes(normalize(input.jobTitle));
   const coverLetterAvoidsGenericOpening = !GENERIC_OPENINGS.some((opening) => normalizedCoverLetter.startsWith(opening));
+  const coverLetterAvoidsTemplateLanguage = templatePhraseHits(normalizedCoverLetter) <= 1;
+  const coverLetterUsesNamedResumeEvidence = usesNamedResumeEvidence(input.resumeText, normalizedCoverLetter);
+  const employerQuestionsAddressed = addressesEmployerQuestions(input.jobDescription, normalizedCoverLetter);
   const strengthsGroundedRatio = groundingRatio(analysis.strengths, normalizedResumeText);
   const suggestedBulletsGroundedRatio = groundingRatio(analysis.suggestedBullets, normalizedResumeText);
 
@@ -78,6 +94,9 @@ export function qualityReviewAgent(input: JobIntakeInput, analysis: JobAnalysis)
   if (!coverLetterMentionsCompany) warnings.push("Cover letter does not mention the company name.");
   if (!coverLetterMentionsRole) warnings.push("Cover letter does not mention the target role.");
   if (!coverLetterAvoidsGenericOpening) warnings.push("Cover letter opening sounds generic.");
+  if (!coverLetterAvoidsTemplateLanguage) warnings.push("Cover letter uses template-style phrases that weaken recruiter impact.");
+  if (!coverLetterUsesNamedResumeEvidence) warnings.push("Cover letter does not use enough named resume evidence, such as a project, employer, metric, or integration.");
+  if (!employerQuestionsAddressed) warnings.push("Cover letter does not address employer screening-question topics supported by the resume.");
   if (strengthsGroundedRatio < 0.5) warnings.push("Strengths may not be sufficiently grounded in the resume.");
   if (suggestedBulletsGroundedRatio < 0.5) warnings.push("Suggested bullets may not be sufficiently grounded in the resume.");
 
@@ -96,6 +115,12 @@ export function qualityReviewAgent(input: JobIntakeInput, analysis: JobAnalysis)
   if (coverLetterWordCount < 250 || coverLetterWordCount > 350) {
     recommendations.push("Tune cover letter length closer to the 250-350 word target.");
   }
+  if (!coverLetterUsesNamedResumeEvidence) {
+    recommendations.push("Add a named project, employer, metric, or integration from the resume to make the cover letter less abstract.");
+  }
+  if (!employerQuestionsAddressed) {
+    recommendations.push("Where the JD lists employer questions, weave in supported answers such as RDBMS, JavaScript, full-stack, or framework experience.");
+  }
 
   const categoryScores = {
     structure: average([scoreBoolean(hasRequiredSections), scoreBoolean(scoreInRange), scoreBoolean(summaryAvoidsScoreText)]),
@@ -105,14 +130,22 @@ export function qualityReviewAgent(input: JobIntakeInput, analysis: JobAnalysis)
     coverLetterQuality: average([
       coverLetterLengthScore(coverLetterWordCount),
       coverLetterMentionsCompany ? 100 : 60,
-      coverLetterAvoidsGenericOpening ? 100 : 70
+      coverLetterAvoidsGenericOpening ? 100 : 60,
+      coverLetterAvoidsTemplateLanguage ? 100 : 60,
+      coverLetterUsesNamedResumeEvidence ? 100 : 65,
+      employerQuestionsAddressed ? 100 : 75
     ])
   };
   const qualityScore = Math.round(average(Object.values(categoryScores)));
 
   return {
     qualityScore,
-    passed: qualityScore >= 75 && warnings.filter((warning) => !warning.includes("target range")).length <= 2,
+    passed:
+      qualityScore >= 75 &&
+      warnings.filter((warning) => !warning.includes("target range")).length <= 2 &&
+      coverLetterAvoidsTemplateLanguage &&
+      coverLetterUsesNamedResumeEvidence &&
+      employerQuestionsAddressed,
     warnings,
     recommendations,
     categoryScores,
@@ -128,6 +161,9 @@ export function qualityReviewAgent(input: JobIntakeInput, analysis: JobAnalysis)
       coverLetterMentionsCompany,
       coverLetterMentionsRole,
       coverLetterAvoidsGenericOpening,
+      coverLetterAvoidsTemplateLanguage,
+      coverLetterUsesNamedResumeEvidence,
+      employerQuestionsAddressed,
       strengthsGroundedRatio,
       suggestedBulletsGroundedRatio
     }
@@ -139,6 +175,71 @@ function metricsAppearGrounded(resumeText: string, bullets: string[]) {
   const bulletsHaveMetrics = bullets.some((bullet) => METRIC_PATTERN.test(bullet));
 
   return !bulletsHaveMetrics || resumeHasMetrics;
+}
+
+function companyMentioned(companyName: string, normalizedCoverLetter: string) {
+  const normalizedCompany = normalize(companyName);
+  if (normalizedCoverLetter.includes(normalizedCompany)) return true;
+
+  const coreCompanyName = normalizedCompany
+    .replace(/\b(pty|limited|ltd|inc|llc|plc|company|co)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return coreCompanyName.length >= 3 && normalizedCoverLetter.includes(coreCompanyName);
+}
+
+function templatePhraseHits(coverLetter: string) {
+  return TEMPLATE_PHRASES.filter((phrase) => coverLetter.includes(phrase)).length;
+}
+
+function usesNamedResumeEvidence(resumeText: string, normalizedCoverLetter: string) {
+  const anchors = extractNamedResumeAnchors(resumeText);
+  if (anchors.length === 0) return true;
+
+  return anchors.some((anchor) => normalizedCoverLetter.includes(normalize(anchor)));
+}
+
+function extractNamedResumeAnchors(resumeText: string) {
+  const ignoredHeadings = new Set([
+    "profile",
+    "education",
+    "experience",
+    "projects",
+    "technical skills",
+    "certifications"
+  ]);
+
+  return resumeText
+    .split(/\n+/)
+    .map((line) => line.replace(/\[[^\]]+\]/g, "").replace(/\s{2,}.*/, "").trim())
+    .filter((line) => line.length >= 4 && line.length <= 70)
+    .filter((line) => !ignoredHeadings.has(line.toLowerCase()))
+    .filter((line) => !/[@|]/.test(line))
+    .filter((line) => /[A-Z][a-z]+|[A-Z]{2,}|[a-z]+[A-Z][a-z]+/.test(line))
+    .filter((line) => !/^(languages|databases|devops|libraries)\b/i.test(line))
+    .slice(0, 12);
+}
+
+function addressesEmployerQuestions(jobDescription: string, normalizedCoverLetter: string) {
+  if (!/employer questions|your application will include|following questions/i.test(jobDescription)) {
+    return true;
+  }
+
+  const screeningTopics = [
+    "rdbms",
+    "relational database",
+    "javascript",
+    "full-stack",
+    "full stack",
+    "front-end",
+    "frontend",
+    "framework",
+    "right to work",
+    "australia"
+  ];
+
+  return screeningTopics.filter((topic) => normalizedCoverLetter.includes(topic)).length >= 2;
 }
 
 function normalize(value: string) {

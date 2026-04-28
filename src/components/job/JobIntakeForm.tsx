@@ -5,7 +5,21 @@ import { Loader2, Sparkles } from "lucide-react";
 import type { AnalyseJobResponse, JobIntakeInput } from "@/lib/db/types";
 
 const sampleJob =
-  "We are looking for a full-stack engineer to build modern product features using React, Next.js, TypeScript, APIs, SQL databases, and AI-assisted workflows. The role requires strong communication, ownership, testing practices, and experience shipping maintainable customer-facing software.";
+  "About the role: We are looking for a full-stack engineer to build modern product features using React, Next.js, TypeScript, APIs, SQL databases, and AI-assisted workflows. Responsibilities include shipping maintainable customer-facing software, improving performance, collaborating with product and design, writing tests, and communicating tradeoffs clearly. Requirements include strong frontend engineering skills, backend API integration experience, ownership, accessibility awareness, and practical experience delivering production-ready web applications.";
+
+type AnalyseJobSuccessResponse = AnalyseJobResponse & {
+  validation?: {
+    warnings?: string[];
+    sanitizedResumeText?: string;
+  };
+};
+
+type AnalyseJobErrorResponse = {
+  error?: string;
+  errors?: string[];
+  warnings?: string[];
+  details?: string;
+};
 
 export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobResponse) => void }) {
   const [form, setForm] = useState<JobIntakeInput>({
@@ -16,6 +30,8 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
     resumeText: ""
   });
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [savedResumeText, setSavedResumeText] = useState("");
   const [resumeStatus, setResumeStatus] = useState<"loading" | "empty" | "loaded" | "saving" | "saved" | "failed">(
@@ -57,13 +73,9 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
     event.preventDefault();
     setIsSubmitting(true);
     setError(null);
+    setValidationErrors([]);
+    setValidationWarnings([]);
     setErrorDetails(null);
-
-    const saveResumeResponse = await saveResumeIfChanged();
-    if (!saveResumeResponse) {
-      setIsSubmitting(false);
-      return;
-    }
 
     const response = await fetch("/api/analyse-job", {
       method: "POST",
@@ -71,29 +83,46 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
       body: JSON.stringify(form)
     });
 
-    const payload = await response.json();
-    setIsSubmitting(false);
+    const payload = (await response.json()) as AnalyseJobSuccessResponse & AnalyseJobErrorResponse;
 
     if (!response.ok) {
+      setIsSubmitting(false);
       setError(payload.error || "Unable to analyse this job.");
+      setValidationErrors(payload.errors || []);
+      setValidationWarnings(payload.warnings || []);
       setErrorDetails(payload.details || null);
       return;
     }
 
+    const saved = await saveResumeIfChanged(payload.validation?.sanitizedResumeText);
+    if (!saved) {
+      setValidationWarnings(["Analysis completed, but the saved resume profile could not be updated."]);
+    } else {
+      setValidationWarnings(payload.validation?.warnings || []);
+    }
+
+    setIsSubmitting(false);
     onResult(payload as AnalyseJobResponse);
   }
 
-  async function saveResumeIfChanged() {
-    const resumeText = form.resumeText.trim();
+  async function saveResumeIfChanged(validatedResumeText?: string) {
+    const resumeText = (validatedResumeText || form.resumeText).trim();
     if (resumeText === savedResumeText.trim()) return true;
 
     setResumeStatus("saving");
 
-    const response = await fetch("/api/profile/resume", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ resumeText })
-    });
+    let response: Response;
+    try {
+      response = await fetch("/api/profile/resume", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resumeText })
+      });
+    } catch {
+      setError("Analysis completed, but the saved resume profile could not be updated.");
+      setResumeStatus("failed");
+      return false;
+    }
 
     const payload = await response.json();
     if (!response.ok) {
@@ -181,7 +210,24 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
       {error ? (
         <div className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
           <p>{error}</p>
+          {validationErrors.length > 1 ? (
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {validationErrors.slice(1).map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          ) : null}
           {errorDetails ? <p className="mt-1 text-xs text-rose-600">{errorDetails}</p> : null}
+        </div>
+      ) : null}
+      {validationWarnings.length > 0 ? (
+        <div className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <p className="font-medium">Review note</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5">
+            {validationWarnings.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
         </div>
       ) : null}
       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
