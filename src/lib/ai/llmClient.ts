@@ -82,12 +82,16 @@ export async function generateCoverLetterWithLlm({
   input,
   analysis,
   context,
+  profileSummary,
+  coverLetterPreferences,
   previousCoverLetter,
   revisionInstruction
 }: {
   input: JobIntakeInput;
   analysis: JobAnalysis;
   context?: string;
+  profileSummary?: string;
+  coverLetterPreferences?: string;
   previousCoverLetter?: string;
   revisionInstruction?: string;
 }): Promise<CoverLetterLlmResult> {
@@ -103,6 +107,8 @@ export async function generateCoverLetterWithLlm({
     input,
     analysis,
     context,
+    profileSummary,
+    coverLetterPreferences,
     previousCoverLetter,
     revisionInstruction
   });

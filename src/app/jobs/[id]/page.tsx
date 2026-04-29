@@ -57,7 +57,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         </div>
       </section>
 
-      <NextActionPanel application={application} />
+      <NextActionPanel application={application} history={history} />
 
       <div id="analysis">
         <AnalysisResult

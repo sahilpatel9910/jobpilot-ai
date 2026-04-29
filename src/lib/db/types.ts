@@ -61,6 +61,8 @@ export type ProfileSettingsRecord = {
   id: string;
   user_id: string;
   resume_text: string;
+  profile_summary: string | null;
+  cover_letter_preferences: string | null;
   created_at: string;
   updated_at: string;
 };

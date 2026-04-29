@@ -82,6 +82,8 @@ create table if not exists public.profile_settings (
   id text primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
   resume_text text not null,
+  profile_summary text,
+  cover_letter_preferences text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -91,6 +93,12 @@ alter table if exists public.profile_settings
 
 alter table if exists public.profile_settings
   add column if not exists user_id uuid references auth.users(id) on delete cascade;
+
+alter table if exists public.profile_settings
+  add column if not exists profile_summary text;
+
+alter table if exists public.profile_settings
+  add column if not exists cover_letter_preferences text;
 
 create unique index if not exists profile_settings_user_id_idx on public.profile_settings(user_id);
 

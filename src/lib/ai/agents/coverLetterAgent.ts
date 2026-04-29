@@ -5,6 +5,8 @@ export type CoverLetterGenerationInput = {
   input: JobIntakeInput;
   analysis: JobAnalysis;
   context?: string;
+  profileSummary?: string;
+  coverLetterPreferences?: string;
   previousCoverLetter?: string;
   revisionInstruction?: string;
 };
@@ -13,6 +15,8 @@ export async function coverLetterAgent({
   input,
   analysis,
   context,
+  profileSummary,
+  coverLetterPreferences,
   previousCoverLetter,
   revisionInstruction
 }: CoverLetterGenerationInput) {
@@ -20,6 +24,8 @@ export async function coverLetterAgent({
     input,
     analysis,
     context,
+    profileSummary,
+    coverLetterPreferences,
     previousCoverLetter,
     revisionInstruction
   });

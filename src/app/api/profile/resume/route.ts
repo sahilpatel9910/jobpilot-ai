@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { classifyInputText, countWords } from "@/lib/security/inputClassifier";
 import { MAX_RESUME_CHARACTERS, sanitizeTextField } from "@/lib/security/inputSanitizer";
 import { createSupabaseServerClient, getCurrentUser, hasSupabaseServerConfig } from "@/lib/supabase/server";
+import { buildProfileSummaryFromResume } from "@/lib/profile/profileMemory";
 
 export async function GET() {
   if (!hasSupabaseServerConfig()) {
@@ -60,9 +61,10 @@ export async function PUT(request: Request) {
   }
 
   const supabase = createSupabaseServerClient();
+  const profileSummary = buildProfileSummaryFromResume(resumeText);
   const { data, error } = await supabase
     .from("profile_settings")
-    .upsert({ id: user.id, user_id: user.id, resume_text: resumeText }, { onConflict: "user_id" })
+    .upsert({ id: user.id, user_id: user.id, resume_text: resumeText, profile_summary: profileSummary }, { onConflict: "user_id" })
     .select()
     .single();
 

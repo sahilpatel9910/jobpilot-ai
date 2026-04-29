@@ -81,10 +81,17 @@ export async function POST(request: Request) {
       })
     ];
     const previousCoverLetter = body.previousCoverLetter || application.cover_letter || "";
+    const { data: profileSettings } = await supabase
+      .from("profile_settings")
+      .select("profile_summary, cover_letter_preferences")
+      .eq("user_id", user.id)
+      .maybeSingle();
     const generation = await coverLetterAgent({
       input,
       analysis,
       context: validation.context,
+      profileSummary: profileSettings?.profile_summary || "",
+      coverLetterPreferences: profileSettings?.cover_letter_preferences || "",
       previousCoverLetter,
       revisionInstruction: validation.revisionInstruction
     });

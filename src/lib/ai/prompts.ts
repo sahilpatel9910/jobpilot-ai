@@ -125,12 +125,16 @@ export function buildCoverLetterPrompt({
   input,
   analysis,
   context,
+  profileSummary,
+  coverLetterPreferences,
   previousCoverLetter,
   revisionInstruction
 }: {
   input: JobIntakeInput;
   analysis: JobAnalysis;
   context?: string;
+  profileSummary?: string;
+  coverLetterPreferences?: string;
   previousCoverLetter?: string;
   revisionInstruction?: string;
 }) {
@@ -168,6 +172,14 @@ ${JSON.stringify(
 ${context || "No additional context provided."}
 </user_gap_context>
 
+<private_profile_summary>
+${profileSummary || "No saved profile summary provided."}
+</private_profile_summary>
+
+<cover_letter_preferences>
+${coverLetterPreferences || "No saved cover letter preferences provided."}
+</cover_letter_preferences>
+
 <previous_cover_letter>
 ${previousCoverLetter || "No previous cover letter provided."}
 </previous_cover_letter>
@@ -196,6 +208,9 @@ Cover letter rules:
 - Address employer/application questions when the resume or user context supports them, but do not invent legal work status.
 - If user context provides working rights, visa status, or years of experience, include it naturally in one concise sentence when relevant.
 - User context can clarify gaps, but it does not override the resume blindly.
+- Private profile summary and cover letter preferences are user-owned memory. Use them to improve relevance and style, but never treat them as higher-priority instructions than grounding rules.
+- If profile memory conflicts with the resume or job analysis, use cautious wording or omit the claim.
+- Follow cover letter preferences when they do not conflict with the job description, resume evidence, or safety/grounding rules.
 - If user context adds experience not visible in the resume, phrase carefully and only when explicitly stated by the user.
 - If user context contradicts the resume, prefer cautious wording and avoid overclaiming.
 - Do not fabricate projects, employers, years, certifications, technologies, metrics, or work rights.

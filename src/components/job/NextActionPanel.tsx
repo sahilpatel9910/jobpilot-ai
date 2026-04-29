@@ -1,18 +1,23 @@
 import Link from "next/link";
-import { ArrowRight, FileText, MessageSquareText, Sparkles } from "lucide-react";
-import type { ApplicationRecord } from "@/lib/db/types";
+import { ArrowRight, AlertCircle, CheckCircle2, FileText, MessageSquareText, Sparkles } from "lucide-react";
+import type { ApplicationRecord, ApplicationStatusHistoryRecord } from "@/lib/db/types";
+import { applicationFollowUpAgent } from "@/lib/ai/agents/applicationFollowUpAgent";
 
-type NextAction = {
-  title: string;
-  description: string;
-  href: string;
-  cta: string;
-  icon: typeof Sparkles;
-};
-
-export function NextActionPanel({ application }: { application: ApplicationRecord }) {
-  const action = getNextAction(application);
-  const Icon = action.icon;
+export function NextActionPanel({
+  application,
+  history = []
+}: {
+  application: ApplicationRecord;
+  history?: ApplicationStatusHistoryRecord[];
+}) {
+  const action = applicationFollowUpAgent(application, history);
+  const Icon = getActionIcon(action.href);
+  const urgencyClass =
+    action.urgency === "high"
+      ? "border-rose-100 bg-rose-50 text-rose-700"
+      : action.urgency === "medium"
+        ? "border-amber-100 bg-amber-50 text-amber-700"
+        : "border-pilot-100 bg-pilot-50 text-pilot-700";
 
   return (
     <section className="rounded-lg border border-pilot-100 bg-pilot-50 p-5 shadow-soft">
@@ -23,8 +28,22 @@ export function NextActionPanel({ application }: { application: ApplicationRecor
           </span>
           <div>
             <p className="text-sm font-semibold text-pilot-700">Recommended next action</p>
-            <h2 className="mt-1 text-lg font-semibold text-ink">{action.title}</h2>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-ink">{action.title}</h2>
+              <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${urgencyClass}`}>
+                <AlertCircle size={13} aria-hidden="true" />
+                {action.urgency} priority
+              </span>
+            </div>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">{action.description}</p>
+            <ul className="mt-3 grid gap-2 text-xs font-medium text-slate-600 sm:grid-cols-3">
+              {action.checklist.map((item) => (
+                <li key={item} className="flex items-start gap-2">
+                  <CheckCircle2 size={14} className="mt-0.5 text-pilot-600" aria-hidden="true" />
+                  {item}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
         <Link
@@ -39,52 +58,8 @@ export function NextActionPanel({ application }: { application: ApplicationRecor
   );
 }
 
-function getNextAction(application: ApplicationRecord): NextAction {
-  if (application.cover_letter_status === "not_generated") {
-    return {
-      title: "Generate the tailored cover letter",
-      description: "Review the gaps, add any missing context, then generate a letter grounded in this resume and job ad.",
-      href: "#cover-letter",
-      cta: "Go to cover letter",
-      icon: Sparkles
-    };
-  }
-
-  if (application.status === "Applied") {
-    return {
-      title: "Record the follow-up plan",
-      description: "Add where you applied, recruiter details, and the date you want to follow up.",
-      href: "#tracking",
-      cta: "Add tracking note",
-      icon: MessageSquareText
-    };
-  }
-
-  if (application.status === "Interview") {
-    return {
-      title: "Capture interview prep notes",
-      description: "Use notes to store interview dates, expected topics, recruiter names, and questions to practise.",
-      href: "#tracking",
-      cta: "Prepare notes",
-      icon: MessageSquareText
-    };
-  }
-
-  if (application.status === "Rejected") {
-    return {
-      title: "Review gaps before archiving",
-      description: "Compare the gaps against the role, save any lessons, then archive when you are finished with this application.",
-      href: "#analysis",
-      cta: "Review analysis",
-      icon: FileText
-    };
-  }
-
-  return {
-    title: "Move this application forward",
-    description: "Use the analysis, resume bullets, cover letter, and status notes to decide the next concrete step.",
-    href: "#analysis",
-    cta: "Review analysis",
-    icon: FileText
-  };
+function getActionIcon(href: string) {
+  if (href === "#cover-letter") return Sparkles;
+  if (href === "#tracking") return MessageSquareText;
+  return FileText;
 }

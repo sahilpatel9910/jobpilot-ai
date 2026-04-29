@@ -1,12 +1,13 @@
 import Link from "next/link";
-import { BarChart3, BriefcaseBusiness, ClipboardList, Sparkles } from "lucide-react";
+import { BarChart3, BriefcaseBusiness, ClipboardList, Settings, Sparkles } from "lucide-react";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { getCurrentUser } from "@/lib/supabase/server";
 
 const navItems = [
   { href: "/", label: "Overview", icon: BarChart3 },
   { href: "/jobs/new", label: "New analysis", icon: Sparkles },
-  { href: "/dashboard", label: "Tracker", icon: ClipboardList }
+  { href: "/dashboard", label: "Tracker", icon: ClipboardList },
+  { href: "/settings", label: "Settings", icon: Settings }
 ] as const;
 
 export async function AppShell({ children }: { children: React.ReactNode }) {

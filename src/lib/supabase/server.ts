@@ -39,6 +39,8 @@ type ProfileSettingsInsert = {
   id?: string;
   user_id: string;
   resume_text: string;
+  profile_summary?: string | null;
+  cover_letter_preferences?: string | null;
 };
 
 type ProfileSettingsUpdate = Partial<ProfileSettingsInsert>;

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const protectedPagePrefixes = ["/dashboard"];
+const protectedPagePrefixes = ["/dashboard", "/settings"];
 const authPagePrefixes = ["/login", "/signup"];
 
 export async function middleware(request: NextRequest) {
