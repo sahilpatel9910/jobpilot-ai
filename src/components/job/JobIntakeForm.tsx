@@ -2,11 +2,29 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Circle, Loader2, LockKeyhole, Sparkles } from "lucide-react";
+import { CheckCircle2, Circle, FileText, Loader2, LockKeyhole, Sparkles, X } from "lucide-react";
 import type { AnalyseJobResponse, JobIntakeInput } from "@/lib/db/types";
+import { CopyButton } from "@/components/ui/CopyButton";
 
 const sampleJob =
   "About the role: We are looking for a full-stack engineer to build modern product features using React, Next.js, TypeScript, APIs, SQL databases, and AI-assisted workflows. Responsibilities include shipping maintainable customer-facing software, improving performance, collaborating with product and design, writing tests, and communicating tradeoffs clearly. Requirements include strong frontend engineering skills, backend API integration experience, ownership, accessibility awareness, and practical experience delivering production-ready web applications.";
+
+const resumePdfPrompt = `You are helping me convert my resume PDF into clean plain text for a job application analysis tool.
+
+Task:
+Extract the resume content from the PDF or pasted resume file and return a clean plain-text version.
+
+Rules:
+- Do not rewrite, improve, exaggerate, or invent experience.
+- Preserve real section headings such as Profile, Education, Experience, Projects, Technical Skills, and Certifications.
+- Preserve company names, job titles, dates, project names, technologies, links, and measurable achievements.
+- Keep bullet points as plain text bullets using "-".
+- Remove decorative lines, icons, tables, columns, page numbers, and layout artifacts.
+- If text is split across columns, reorder it into a normal top-to-bottom resume flow.
+- Keep contact details if they are present.
+- Return only the cleaned resume text. No commentary, no markdown explanation, no analysis.
+
+After you produce the cleaned resume text, I will paste it into JobPilot AI.`;
 
 type AnalyseJobSuccessResponse = AnalyseJobResponse & {
   validation?: {
@@ -64,6 +82,7 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
 
   const currentStep = useMemo(() => analysisSteps[Math.min(currentStepIndex, analysisSteps.length - 1)], [currentStepIndex]);
 
@@ -251,21 +270,31 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
             required
           />
         </label>
-        <label className="space-y-2">
+        <div className="space-y-2">
           <span className="flex items-center justify-between gap-3 text-sm font-medium">
-            Resume text
-            <span className="text-xs font-normal text-slate-500">
-              {resumeStatus === "loading"
-                ? "Checking saved resume"
-                : resumeStatus === "empty"
-                  ? "Saved on first analysis"
-                  : resumeStatus === "saving"
-                    ? "Saving resume"
-                    : resumeStatus === "saved"
-                      ? "Resume saved"
-                      : resumeStatus === "loaded"
-                        ? "Loaded saved resume"
-                        : "Resume save unavailable"}
+            <span>Resume text</span>
+            <span className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowResumePrompt(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-pilot-700 transition hover:text-pilot-600"
+              >
+                <FileText size={14} aria-hidden="true" />
+                PDF to text prompt
+              </button>
+              <span className="text-xs font-normal text-slate-500">
+                {resumeStatus === "loading"
+                  ? "Checking saved resume"
+                  : resumeStatus === "empty"
+                    ? "Saved on first analysis"
+                    : resumeStatus === "saving"
+                      ? "Saving resume"
+                      : resumeStatus === "saved"
+                        ? "Resume saved"
+                        : resumeStatus === "loaded"
+                          ? "Loaded saved resume"
+                          : "Resume save unavailable"}
+              </span>
             </span>
           </span>
           <textarea
@@ -276,7 +305,7 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
             className="min-h-72 w-full resize-y rounded-lg border border-slateLine px-3 py-2.5 outline-none transition focus:border-pilot-500 focus:ring-2 focus:ring-pilot-100"
             required
           />
-        </label>
+        </div>
       </div>
       {isSubmitting ? (
         <div className="mt-4 rounded-lg border border-pilot-100 bg-pilot-50 p-4" role="status" aria-live="polite">
@@ -386,7 +415,67 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
           {isSubmitting ? currentStep.title : "Analyse and save"}
         </button>
       </div>
+      {showResumePrompt ? <ResumePdfPromptModal onClose={() => setShowResumePrompt(false)} /> : null}
     </form>
+  );
+}
+
+function ResumePdfPromptModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4 py-6" role="dialog" aria-modal="true">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-lg border border-slateLine bg-white shadow-soft">
+        <div className="flex items-start justify-between gap-4 border-b border-slateLine px-5 py-4">
+          <div>
+            <p className="text-sm font-semibold text-pilot-700">Resume PDF helper</p>
+            <h2 className="mt-1 text-lg font-semibold">Convert your PDF resume into clean text</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Copy this prompt into Claude, ChatGPT, or another LLM with your resume PDF attached. Then paste the cleaned
+              resume text back into JobPilot.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-slate-500 transition hover:bg-surface hover:text-ink"
+            aria-label="Close resume PDF helper"
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="space-y-4 p-5">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-900">
+            JobPilot does not upload or parse PDFs in MVP. This keeps the app simple and avoids storing files. Use the
+            prompt below externally, then paste only the cleaned text here.
+          </div>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold">Copy prompt</p>
+              <CopyButton value={resumePdfPrompt} label="Copy prompt" copiedLabel="Prompt copied" />
+            </div>
+            <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-lg border border-slateLine bg-surface p-4 text-sm leading-6 text-slate-700">
+              {resumePdfPrompt}
+            </pre>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              "Attach your resume PDF to the LLM chat.",
+              "Paste the prompt exactly as written.",
+              "Copy the cleaned text result into JobPilot."
+            ].map((step, index) => (
+              <div key={step} className="rounded-lg border border-slateLine bg-white p-3 text-sm leading-6 text-slate-600">
+                <span className="mb-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-pilot-50 text-xs font-bold text-pilot-700">
+                  {index + 1}
+                </span>
+                <p>{step}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
