@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { CheckCircle2, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { CheckCircle2, Circle, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import type { CoverLetterStatus } from "@/lib/db/types";
 import { CoverLetterPreview } from "@/components/job/CoverLetterPreview";
 
@@ -18,7 +18,29 @@ type GenerateCoverLetterResponse = {
   coverLetterStatus?: CoverLetterStatus;
   error?: string;
   errors?: string[];
+  details?: string;
 };
+
+type CoverLetterAction = "generate" | "regenerate" | null;
+
+const coverLetterSteps = [
+  {
+    title: "Reviewing context",
+    description: "Checking your gap notes and revision instruction for safety and relevance."
+  },
+  {
+    title: "Drafting letter",
+    description: "Using the saved resume, job description, and analysis to write a grounded draft."
+  },
+  {
+    title: "Quality review",
+    description: "Checking recruiter impact, grounding, role fit, and generic wording."
+  },
+  {
+    title: "Saving result",
+    description: "Updating the application and preserving the cover-letter agent trace."
+  }
+];
 
 export function CoverLetterWorkspace({
   applicationId,
@@ -31,35 +53,66 @@ export function CoverLetterWorkspace({
   const [context, setContext] = useState(initialContext);
   const [revisionInstruction, setRevisionInstruction] = useState(initialRevisionInstruction);
   const [status, setStatus] = useState<CoverLetterStatus>(initialStatus);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [activeAction, setActiveAction] = useState<CoverLetterAction>(null);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
 
   const hasCoverLetter = status !== "not_generated" && Boolean(coverLetter);
-  const isBusy = isGenerating || isRegenerating;
+  const isBusy = Boolean(activeAction);
   const statusLabel = status === "regenerated" ? "Regenerated" : status === "generated" ? "Generated" : "Not generated";
+  const currentStep = useMemo(
+    () => coverLetterSteps[Math.min(currentStepIndex, coverLetterSteps.length - 1)],
+    [currentStepIndex]
+  );
+
+  useEffect(() => {
+    if (!activeAction) {
+      setCurrentStepIndex(0);
+      return;
+    }
+
+    const timers = [
+      window.setTimeout(() => setCurrentStepIndex(1), 800),
+      window.setTimeout(() => setCurrentStepIndex(2), 2600),
+      window.setTimeout(() => setCurrentStepIndex(3), 4800)
+    ];
+
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [activeAction]);
 
   async function generateCoverLetter() {
-    setIsGenerating(true);
+    if (isBusy) return;
+
+    setActiveAction("generate");
+    setCurrentStepIndex(0);
     setError(null);
+    setErrorDetails(null);
     setMessage(null);
 
     const payload = await submitCoverLetterRequest({ context });
-    setIsGenerating(false);
+    setActiveAction(null);
 
     if (!payload) return;
     setMessage("Cover letter generated and saved.");
   }
 
   async function regenerateCoverLetter() {
+    if (isBusy) return;
+
     if (!revisionInstruction.trim()) {
       setError("Please add what you would like to change before regenerating.");
+      setErrorDetails(null);
       return;
     }
 
-    setIsRegenerating(true);
+    setActiveAction("regenerate");
+    setCurrentStepIndex(0);
     setError(null);
+    setErrorDetails(null);
     setMessage(null);
 
     const payload = await submitCoverLetterRequest({
@@ -67,7 +120,7 @@ export function CoverLetterWorkspace({
       revisionInstruction,
       previousCoverLetter: coverLetter
     });
-    setIsRegenerating(false);
+    setActiveAction(null);
 
     if (!payload) return;
     setMessage("Cover letter regenerated and saved.");
@@ -87,18 +140,22 @@ export function CoverLetterWorkspace({
           ...body
         })
       });
-      const payload = (await response.json()) as GenerateCoverLetterResponse;
+      const payload = (await readJsonResponse(response)) as GenerateCoverLetterResponse;
 
       if (!response.ok) {
-        setError(payload.errors?.[0] || payload.error || "Unable to generate cover letter.");
+        setError(payload.errors?.[0] || payload.error || "Unable to generate cover letter. Please adjust the instruction and try again.");
+        setErrorDetails(payload.details || null);
         return null;
       }
 
       setCoverLetter(payload.coverLetter || "");
       setStatus(payload.coverLetterStatus || "generated");
+      setRevisionInstruction("");
+      setCurrentStepIndex(3);
       return payload;
-    } catch {
-      setError("Unable to connect to the cover letter generator.");
+    } catch (requestError) {
+      setError("Unable to connect to the cover letter generator. Check your connection and try again.");
+      setErrorDetails(requestError instanceof Error ? requestError.message : null);
       return null;
     }
   }
@@ -154,11 +211,15 @@ export function CoverLetterWorkspace({
               <button
                 type="button"
                 onClick={generateCoverLetter}
-                disabled={isGenerating}
+                disabled={isBusy}
                 className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-pilot-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-pilot-700 focus:outline-none focus:ring-2 focus:ring-pilot-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
               >
-                {isGenerating ? <Loader2 className="animate-spin" size={17} aria-hidden="true" /> : <Sparkles size={17} aria-hidden="true" />}
-                Generate cover letter
+                {activeAction === "generate" ? (
+                  <Loader2 className="animate-spin" size={17} aria-hidden="true" />
+                ) : (
+                  <Sparkles size={17} aria-hidden="true" />
+                )}
+                {activeAction === "generate" ? currentStep.title : "Generate cover letter"}
               </button>
             </div>
           </div>
@@ -193,11 +254,15 @@ export function CoverLetterWorkspace({
                   <button
                     type="button"
                     onClick={regenerateCoverLetter}
-                    disabled={isRegenerating}
+                    disabled={isBusy}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
                   >
-                    {isRegenerating ? <Loader2 className="animate-spin" size={17} aria-hidden="true" /> : <RefreshCw size={17} aria-hidden="true" />}
-                    Regenerate cover letter
+                    {activeAction === "regenerate" ? (
+                      <Loader2 className="animate-spin" size={17} aria-hidden="true" />
+                    ) : (
+                      <RefreshCw size={17} aria-hidden="true" />
+                    )}
+                    {activeAction === "regenerate" ? currentStep.title : "Regenerate cover letter"}
                   </button>
                 </div>
               </div>
@@ -205,9 +270,66 @@ export function CoverLetterWorkspace({
           </div>
         )}
 
-        {error ? <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
+        {isBusy ? (
+          <div className="rounded-lg border border-pilot-100 bg-pilot-50 p-4" role="status" aria-live="polite">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-pilot-700">
+                <Loader2 className="animate-spin" size={18} aria-hidden="true" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-ink">{currentStep.title}</p>
+                <p className="mt-1 text-sm leading-6 text-slate-600">{currentStep.description}</p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-4">
+              {coverLetterSteps.map((step, index) => {
+                const isDone = index < currentStepIndex;
+                const isCurrent = index === currentStepIndex;
+
+                return (
+                  <div
+                    key={step.title}
+                    className={`rounded-lg border px-3 py-2 text-xs font-medium ${
+                      isCurrent
+                        ? "border-pilot-200 bg-white text-pilot-800"
+                        : isDone
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                          : "border-slateLine bg-white/70 text-slate-500"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      {isDone ? (
+                        <CheckCircle2 size={14} aria-hidden="true" />
+                      ) : isCurrent ? (
+                        <Loader2 className="animate-spin" size={14} aria-hidden="true" />
+                      ) : (
+                        <Circle size={14} aria-hidden="true" />
+                      )}
+                      {step.title}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        {error ? (
+          <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <p>{error}</p>
+            {errorDetails ? <p className="mt-1 text-xs text-rose-600">{errorDetails}</p> : null}
+          </div>
+        ) : null}
         {message ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p> : null}
       </div>
     </section>
   );
+}
+
+async function readJsonResponse(response: Response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
 }
