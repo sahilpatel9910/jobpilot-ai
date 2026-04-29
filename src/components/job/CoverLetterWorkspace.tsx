@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Circle, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, Circle, Loader2, RefreshCw, Settings, Sparkles } from "lucide-react";
 import type { CoverLetterStatus } from "@/lib/db/types";
 import { CoverLetterPreview } from "@/components/job/CoverLetterPreview";
 
@@ -11,6 +12,8 @@ type CoverLetterWorkspaceProps = {
   initialContext: string;
   initialRevisionInstruction: string;
   initialStatus: CoverLetterStatus;
+  hasProfileSummary?: boolean;
+  hasCoverLetterPreferences?: boolean;
 };
 
 type GenerateCoverLetterResponse = {
@@ -47,7 +50,9 @@ export function CoverLetterWorkspace({
   initialCoverLetter,
   initialContext,
   initialRevisionInstruction,
-  initialStatus
+  initialStatus,
+  hasProfileSummary = false,
+  hasCoverLetterPreferences = false
 }: CoverLetterWorkspaceProps) {
   const [coverLetter, setCoverLetter] = useState(initialCoverLetter);
   const [context, setContext] = useState(initialContext);
@@ -183,6 +188,30 @@ export function CoverLetterWorkspace({
       </div>
 
       <div className="space-y-5 p-5">
+        <div className="rounded-lg border border-slateLine bg-surface p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold">Profile memory used for this letter</h3>
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
+                JobPilot uses your saved profile summary and cover-letter preferences as private context. This improves
+                relevance without training a model on your data.
+              </p>
+            </div>
+            <Link
+              href="/settings"
+              className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-slateLine bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 lg:w-auto"
+            >
+              <Settings size={16} aria-hidden="true" />
+              Edit memory
+            </Link>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <MemoryPill label="Profile summary" active={hasProfileSummary} />
+            <MemoryPill label="Cover letter preferences" active={hasCoverLetterPreferences} />
+            <MemoryPill label="Job-specific context" active={Boolean(context.trim())} />
+          </div>
+        </div>
+
         {!hasCoverLetter ? (
           <div className="space-y-4">
             <label className="block space-y-2">
@@ -323,6 +352,19 @@ export function CoverLetterWorkspace({
         {message ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p> : null}
       </div>
     </section>
+  );
+}
+
+function MemoryPill({ label, active }: { label: string; active: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
+        active ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slateLine bg-white text-slate-500"
+      }`}
+    >
+      <CheckCircle2 size={13} aria-hidden="true" />
+      {label}: {active ? "on" : "not set"}
+    </span>
   );
 }
 

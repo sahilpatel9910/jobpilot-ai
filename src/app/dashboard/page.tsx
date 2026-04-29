@@ -20,6 +20,9 @@ export default async function DashboardPage() {
         <div>
           <p className="text-sm font-semibold text-pilot-700">Application tracker</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-normal">Pipeline dashboard</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            Manage saved roles here: search, filter by status, sort by match score, and decide what moves forward.
+          </p>
         </div>
         <Link
           href="/jobs/new"

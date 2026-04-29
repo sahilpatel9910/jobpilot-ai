@@ -12,12 +12,14 @@ import { StatusHistory } from "@/components/job/StatusHistory";
 import { StatusSelect } from "@/components/job/StatusSelect";
 import { getApplication, listAgentRuns, listApplicationStatusHistory } from "@/lib/db/applications";
 import { formatApplicationDateTime } from "@/lib/format/date";
+import { createSupabaseServerClient, getCurrentUser, hasSupabaseServerConfig } from "@/lib/supabase/server";
 
 export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const application = await getApplication(id);
   const history = await listApplicationStatusHistory(id);
   const agentRuns = await listAgentRuns(id);
+  const profileMemory = await loadProfileMemory();
 
   if (!application) {
     notFound();
@@ -78,6 +80,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
               initialContext={application.cover_letter_context || ""}
               initialRevisionInstruction={application.cover_letter_revision_instruction || ""}
               initialStatus={application.cover_letter_status || "not_generated"}
+              hasProfileSummary={Boolean(profileMemory?.profile_summary)}
+              hasCoverLetterPreferences={Boolean(profileMemory?.cover_letter_preferences)}
             />
           }
         />
@@ -91,4 +95,20 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       <AgentTrace agentRuns={agentRuns} />
     </div>
   );
+}
+
+async function loadProfileMemory() {
+  if (!hasSupabaseServerConfig()) return null;
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("profile_settings")
+    .select("profile_summary, cover_letter_preferences")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error) return null;
+  return data;
 }
