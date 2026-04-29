@@ -8,6 +8,10 @@ import { CoverLetterPreview } from "@/components/job/CoverLetterPreview";
 
 type CoverLetterWorkspaceProps = {
   applicationId: string;
+  companyName: string;
+  jobTitle: string;
+  resumeText: string;
+  requiredSkills: string[];
   initialCoverLetter: string;
   initialContext: string;
   initialRevisionInstruction: string;
@@ -47,6 +51,10 @@ const coverLetterSteps = [
 
 export function CoverLetterWorkspace({
   applicationId,
+  companyName,
+  jobTitle,
+  resumeText,
+  requiredSkills,
   initialCoverLetter,
   initialContext,
   initialRevisionInstruction,
@@ -254,7 +262,16 @@ export function CoverLetterWorkspace({
           </div>
         ) : (
           <div className="space-y-5">
-            <CoverLetterPreview coverLetter={coverLetter} embedded />
+            <CoverLetterPreview
+              coverLetter={coverLetter}
+              embedded
+              documentInput={{
+                companyName,
+                jobTitle,
+                resumeText,
+                keywords: requiredSkills
+              }}
+            />
 
             <div className="grid gap-5 rounded-lg border border-slateLine bg-surface p-4 xl:grid-cols-2">
               <label className="block space-y-2">

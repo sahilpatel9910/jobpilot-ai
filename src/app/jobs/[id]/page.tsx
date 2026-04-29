@@ -76,6 +76,10 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           coverLetterSlot={
             <CoverLetterWorkspace
               applicationId={application.id}
+              companyName={application.company_name}
+              jobTitle={application.job_title}
+              resumeText={application.resume_text}
+              requiredSkills={application.required_skills}
               initialCoverLetter={application.cover_letter || ""}
               initialContext={application.cover_letter_context || ""}
               initialRevisionInstruction={application.cover_letter_revision_instruction || ""}
