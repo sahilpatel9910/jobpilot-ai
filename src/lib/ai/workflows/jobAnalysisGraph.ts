@@ -1,3 +1,4 @@
+import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { createAgentTrace, persistAgentTrace } from "@/lib/ai/agentTrace";
 import { analysisRepairAgent } from "@/lib/ai/agents/analysisRepairAgent";
 import { applicationTrackerAgent } from "@/lib/ai/agents/applicationTrackerAgent";
@@ -10,38 +11,66 @@ import type { AnalyseJobResponse, JobAnalysis, JobIntakeInput } from "@/lib/db/t
 import type { InputValidationResult } from "@/lib/security/types";
 import type { AnalysisMode, JobAnalysisWorkflowState } from "@/lib/ai/workflows/jobAnalysisState";
 
+const JobAnalysisStateAnnotation = Annotation.Root({
+  input: Annotation<JobIntakeInput>(),
+  userId: Annotation<string>(),
+  validationResult: Annotation<InputValidationResult | undefined>(),
+  parsedJob: Annotation<JobAnalysisWorkflowState["parsedJob"]>(),
+  normalizedInput: Annotation<JobIntakeInput | undefined>(),
+  baseAnalysis: Annotation<JobAnalysis | undefined>(),
+  ats: Annotation<JobAnalysisWorkflowState["ats"]>(),
+  matcher: Annotation<JobAnalysisWorkflowState["matcher"]>(),
+  analysis: Annotation<JobAnalysis | undefined>(),
+  qualityReview: Annotation<JobAnalysisWorkflowState["qualityReview"]>(),
+  repair: Annotation<JobAnalysisWorkflowState["repair"]>(),
+  mode: Annotation<JobAnalysisWorkflowState["mode"]>(),
+  provider: Annotation<JobAnalysisWorkflowState["provider"]>(),
+  persistence: Annotation<JobAnalysisWorkflowState["persistence"]>(),
+  traces: Annotation<JobAnalysisWorkflowState["traces"]>()
+});
+
 type WorkflowArgs = {
   input: JobIntakeInput;
   validationResult?: InputValidationResult;
   userId: string;
 };
 
+const compiledJobAnalysisGraph = new StateGraph(JobAnalysisStateAnnotation)
+  .addNode("inputValidationNode", inputValidationNode)
+  .addNode("jobParserNode", jobParserNode)
+  .addNode("llmAnalysisNode", llmAnalysisNode)
+  .addNode("atsKeywordNode", atsKeywordNode)
+  .addNode("resumeMatcherNode", resumeMatcherNode)
+  .addNode("composeAnalysisNode", composeAnalysisNode)
+  .addNode("qualityReviewNode", qualityReviewNode)
+  .addNode("analysisRepairNode", analysisRepairNode)
+  .addNode("qualityReviewRepairPassNode", qualityReviewRepairPassNode)
+  .addNode("applicationTrackerNode", applicationTrackerNode)
+  .addNode("persistTraceNode", persistTraceNode)
+  .addEdge(START, "inputValidationNode")
+  .addEdge("inputValidationNode", "jobParserNode")
+  .addEdge("jobParserNode", "llmAnalysisNode")
+  .addEdge("llmAnalysisNode", "atsKeywordNode")
+  .addEdge("atsKeywordNode", "resumeMatcherNode")
+  .addEdge("resumeMatcherNode", "composeAnalysisNode")
+  .addEdge("composeAnalysisNode", "qualityReviewNode")
+  .addConditionalEdges("qualityReviewNode", routeAfterQualityReview, {
+    repair: "analysisRepairNode",
+    persist: "applicationTrackerNode"
+  })
+  .addEdge("analysisRepairNode", "qualityReviewRepairPassNode")
+  .addEdge("qualityReviewRepairPassNode", "applicationTrackerNode")
+  .addEdge("applicationTrackerNode", "persistTraceNode")
+  .addEdge("persistTraceNode", END)
+  .compile();
+
 export async function runJobAnalysisGraph({ input, validationResult, userId }: WorkflowArgs): Promise<AnalyseJobResponse> {
-  let state: JobAnalysisWorkflowState = {
+  const state = await compiledJobAnalysisGraph.invoke({
     input,
     validationResult,
     userId,
     traces: []
-  };
-
-  state = inputValidationNode(state);
-  state = jobParserNode(state);
-  state = await llmAnalysisNode(state);
-  state = atsKeywordNode(state);
-  state = resumeMatcherNode(state);
-  state = composeAnalysisNode(state);
-  state = qualityReviewNode(state);
-
-  if (shouldRepairAnalysis(state)) {
-    state = await analysisRepairNode(state);
-
-    if (state.repair) {
-      state = qualityReviewNode(state, { repairPass: true });
-    }
-  }
-
-  state = await applicationTrackerNode(state);
-  await persistTraceNode(state);
+  });
 
   return toAnalyseJobResponse(state);
 }
@@ -157,7 +186,11 @@ function composeAnalysisNode(state: JobAnalysisWorkflowState): JobAnalysisWorkfl
   };
 }
 
-function qualityReviewNode(
+function qualityReviewNode(state: JobAnalysisWorkflowState): JobAnalysisWorkflowState {
+  return reviewAnalysis(state);
+}
+
+function reviewAnalysis(
   state: JobAnalysisWorkflowState,
   options: { repairPass?: boolean } = {}
 ): JobAnalysisWorkflowState {
@@ -183,6 +216,11 @@ function qualityReviewNode(
       checks: qualityReview.checks
     })
   );
+}
+
+function qualityReviewRepairPassNode(state: JobAnalysisWorkflowState): JobAnalysisWorkflowState {
+  if (!state.repair) return state;
+  return reviewAnalysis(state, { repairPass: true });
 }
 
 async function analysisRepairNode(state: JobAnalysisWorkflowState): Promise<JobAnalysisWorkflowState> {
@@ -246,14 +284,16 @@ async function applicationTrackerNode(state: JobAnalysisWorkflowState): Promise<
   );
 }
 
-async function persistTraceNode(state: JobAnalysisWorkflowState) {
+async function persistTraceNode(state: JobAnalysisWorkflowState): Promise<JobAnalysisWorkflowState> {
   if (state.persistence?.application) {
     await persistAgentTrace(state.persistence.application.id, state.traces);
   }
+
+  return state;
 }
 
-function shouldRepairAnalysis(state: JobAnalysisWorkflowState) {
-  return !state.qualityReview?.passed && state.mode === "llm" && state.provider !== "mock";
+function routeAfterQualityReview(state: JobAnalysisWorkflowState) {
+  return !state.qualityReview?.passed && state.mode === "llm" && state.provider !== "mock" ? "repair" : "persist";
 }
 
 function toAnalyseJobResponse(state: JobAnalysisWorkflowState): AnalyseJobResponse {
