@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Loader2, LockKeyhole, Sparkles } from "lucide-react";
+import { CheckCircle2, Circle, Loader2, LockKeyhole, Sparkles } from "lucide-react";
 import type { AnalyseJobResponse, JobIntakeInput } from "@/lib/db/types";
 
 const sampleJob =
@@ -22,6 +22,29 @@ type AnalyseJobErrorResponse = {
   details?: string;
 };
 
+const analysisSteps = [
+  {
+    title: "Validating input",
+    description: "Checking resume, job description, swapped fields, and prompt-injection risk."
+  },
+  {
+    title: "Parsing job",
+    description: "Normalising company, role title, seniority, and job-ad structure."
+  },
+  {
+    title: "Matching resume",
+    description: "Comparing strengths, gaps, required skills, and ATS keywords."
+  },
+  {
+    title: "Reviewing quality",
+    description: "Running the quality gate and one repair pass if the analysis needs it."
+  },
+  {
+    title: "Saving tracker",
+    description: "Persisting the application, analysis, and agent trace to your workspace."
+  }
+];
+
 export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobResponse) => void }) {
   const [form, setForm] = useState<JobIntakeInput>({
     companyName: "Atlas Works",
@@ -40,6 +63,27 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
     "loading"
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+
+  const currentStep = useMemo(() => analysisSteps[Math.min(currentStepIndex, analysisSteps.length - 1)], [currentStepIndex]);
+
+  useEffect(() => {
+    if (!isSubmitting) {
+      setCurrentStepIndex(0);
+      return;
+    }
+
+    const timers = [
+      window.setTimeout(() => setCurrentStepIndex(1), 900),
+      window.setTimeout(() => setCurrentStepIndex(2), 2200),
+      window.setTimeout(() => setCurrentStepIndex(3), 4200),
+      window.setTimeout(() => setCurrentStepIndex(4), 6500)
+    ];
+
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [isSubmitting]);
 
   useEffect(() => {
     let isMounted = true;
@@ -77,44 +121,54 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
 
   async function submitForm(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
+
     setIsSubmitting(true);
+    setCurrentStepIndex(0);
     setError(null);
     setValidationErrors([]);
     setValidationWarnings([]);
     setErrorDetails(null);
     setRequiresLogin(false);
 
-    const response = await fetch("/api/analyse-job", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form)
-    });
+    try {
+      const response = await fetch("/api/analyse-job", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form)
+      });
 
-    const payload = (await response.json()) as AnalyseJobSuccessResponse & AnalyseJobErrorResponse;
+      const payload = (await readJsonResponse(response)) as AnalyseJobSuccessResponse & AnalyseJobErrorResponse;
 
-    if (!response.ok) {
-      setIsSubmitting(false);
-      if (response.status === 401) {
-        setRequiresLogin(true);
-        setError(null);
+      if (!response.ok) {
+        setIsSubmitting(false);
+        if (response.status === 401) {
+          setRequiresLogin(true);
+          setError(null);
+          return;
+        }
+        setError(payload.error || "Unable to analyse this job. Please check the inputs and try again.");
+        setValidationErrors(payload.errors || []);
+        setValidationWarnings(payload.warnings || []);
+        setErrorDetails(payload.details || null);
         return;
       }
-      setError(payload.error || "Unable to analyse this job.");
-      setValidationErrors(payload.errors || []);
-      setValidationWarnings(payload.warnings || []);
-      setErrorDetails(payload.details || null);
-      return;
-    }
 
-    const saved = await saveResumeIfChanged(payload.validation?.sanitizedResumeText);
-    if (!saved) {
-      setValidationWarnings(["Analysis completed, but the saved resume profile could not be updated."]);
-    } else {
-      setValidationWarnings(payload.validation?.warnings || []);
-    }
+      setCurrentStepIndex(4);
+      const saved = await saveResumeIfChanged(payload.validation?.sanitizedResumeText);
+      if (!saved) {
+        setValidationWarnings(["Analysis completed, but the saved resume profile could not be updated."]);
+      } else {
+        setValidationWarnings(payload.validation?.warnings || []);
+      }
 
-    setIsSubmitting(false);
-    onResult(payload as AnalyseJobResponse);
+      setIsSubmitting(false);
+      onResult(payload as AnalyseJobResponse);
+    } catch (requestError) {
+      setIsSubmitting(false);
+      setError("The analysis request could not be completed. Check your connection and try again.");
+      setErrorDetails(requestError instanceof Error ? requestError.message : null);
+    }
   }
 
   async function saveResumeIfChanged(validatedResumeText?: string) {
@@ -136,7 +190,7 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
       return false;
     }
 
-    const payload = await response.json();
+    const payload = await readJsonResponse(response);
     if (!response.ok) {
       setError(payload.error || "Unable to save resume text.");
       setResumeStatus("failed");
@@ -160,6 +214,7 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
           <input
             value={form.companyName}
             onChange={(event) => updateField("companyName", event.target.value)}
+            disabled={isSubmitting}
             className="w-full rounded-lg border border-slateLine px-3 py-2.5 outline-none transition focus:border-pilot-500 focus:ring-2 focus:ring-pilot-100"
             required
           />
@@ -169,6 +224,7 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
           <input
             value={form.jobTitle}
             onChange={(event) => updateField("jobTitle", event.target.value)}
+            disabled={isSubmitting}
             className="w-full rounded-lg border border-slateLine px-3 py-2.5 outline-none transition focus:border-pilot-500 focus:ring-2 focus:ring-pilot-100"
             required
           />
@@ -179,6 +235,7 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
         <input
           value={form.jobUrl}
           onChange={(event) => updateField("jobUrl", event.target.value)}
+          disabled={isSubmitting}
           placeholder="https://..."
           className="w-full rounded-lg border border-slateLine px-3 py-2.5 outline-none transition focus:border-pilot-500 focus:ring-2 focus:ring-pilot-100"
         />
@@ -189,6 +246,7 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
           <textarea
             value={form.jobDescription}
             onChange={(event) => updateField("jobDescription", event.target.value)}
+            disabled={isSubmitting}
             className="min-h-72 w-full resize-y rounded-lg border border-slateLine px-3 py-2.5 outline-none transition focus:border-pilot-500 focus:ring-2 focus:ring-pilot-100"
             required
           />
@@ -213,12 +271,56 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
           <textarea
             value={form.resumeText}
             onChange={(event) => updateField("resumeText", event.target.value)}
+            disabled={isSubmitting}
             placeholder="Paste your resume text here. JobPilot saves it after the first analysis and reuses it until you replace it."
             className="min-h-72 w-full resize-y rounded-lg border border-slateLine px-3 py-2.5 outline-none transition focus:border-pilot-500 focus:ring-2 focus:ring-pilot-100"
             required
           />
         </label>
       </div>
+      {isSubmitting ? (
+        <div className="mt-4 rounded-lg border border-pilot-100 bg-pilot-50 p-4" role="status" aria-live="polite">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-pilot-700">
+              <Loader2 className="animate-spin" size={18} aria-hidden="true" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-ink">{currentStep.title}</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">{currentStep.description}</p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-5">
+            {analysisSteps.map((step, index) => {
+              const isDone = index < currentStepIndex;
+              const isCurrent = index === currentStepIndex;
+
+              return (
+                <div
+                  key={step.title}
+                  className={`rounded-lg border px-3 py-2 text-xs font-medium ${
+                    isCurrent
+                      ? "border-pilot-200 bg-white text-pilot-800"
+                      : isDone
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                        : "border-slateLine bg-white/70 text-slate-500"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    {isDone ? (
+                      <CheckCircle2 size={14} aria-hidden="true" />
+                    ) : isCurrent ? (
+                      <Loader2 className="animate-spin" size={14} aria-hidden="true" />
+                    ) : (
+                      <Circle size={14} aria-hidden="true" />
+                    )}
+                    {step.title}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
       {error ? (
         <div className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
           <p>{error}</p>
@@ -281,9 +383,17 @@ export function JobIntakeForm({ onResult }: { onResult: (result: AnalyseJobRespo
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-pilot-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-pilot-700 focus:outline-none focus:ring-2 focus:ring-pilot-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isSubmitting ? <Loader2 className="animate-spin" size={17} aria-hidden="true" /> : <Sparkles size={17} aria-hidden="true" />}
-          Analyse and save
+          {isSubmitting ? currentStep.title : "Analyse and save"}
         </button>
       </div>
     </form>
   );
+}
+
+async function readJsonResponse(response: Response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
 }
