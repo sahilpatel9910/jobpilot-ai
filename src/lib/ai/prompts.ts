@@ -203,8 +203,14 @@ Cover letter rules:
 - Never start the body with "I am writing to express my interest", "I am excited to apply", "I believe I would be", or any variation.
 - Never open with a compliment about the company.
 - The first two body lines must say who the candidate is and what they bring, using concrete evidence from the resume.
-- Mention the strongest relevant resume project, employer, metric, or integration when it maps to the JD.
+- Identify the role's center of gravity from the JD before writing. Frame the candidate around that primary need, not around the candidate's most impressive unrelated strengths.
+- If the role is front-end focused, lead with front-end ownership, UI delivery, dashboards, workflow-driven interfaces, usability, responsiveness, and production feature delivery. Mention backend/API/database work only as support for shipping complete front-end features.
+- If the role asks for AI-assisted development, distinguish between "using AI tools to ship faster" and "building AI systems". Mention AI architecture only when it directly supports the JD; otherwise frame AI experience as practical development acceleration and problem-solving.
+- If the JD emphasises dashboards, data-heavy views, complex tables, workflow UI, scheduling, finance, compliance, or operational platforms, explicitly connect resume evidence to those product/UI contexts.
+- Mention the strongest relevant resume project, employer, metric, or integration when it maps to the JD. Relevance beats technical impressiveness.
 - Do not list skills in isolation; show skills through actual work, projects, numbers, or outcomes.
+- Avoid over-weighting backend-heavy or architecture-heavy phrases such as "database schema", "API architecture", "server-side key management", "orchestration pipeline", or "LLM layer" unless the JD asks for those capabilities.
+- If the JD names a nice-to-have skill such as data visualization, complex tables, Rails, Laravel, or domain-specific operational software and the resume has only adjacent evidence, address it through adjacent evidence without inventing a library, framework, or domain background.
 - Address employer/application questions when the resume or user context supports them, but do not invent legal work status.
 - If user context provides working rights, visa status, or years of experience, include it naturally in one concise sentence when relevant.
 - User context can clarify gaps, but it does not override the resume blindly.
@@ -216,6 +222,7 @@ Cover letter rules:
 - Do not fabricate projects, employers, years, certifications, technologies, metrics, or work rights.
 - If the JD names a framework or tool that is not in the resume, acknowledge it briefly and confidently through adjacent evidence. Do not hide the gap and do not spend a full paragraph on it.
 - Reference what the company actually does, builds, sells, or the role's product context only if present in the JD or user context. Do not invent company research.
+- The letter must feel written for this exact JD. Use specific nouns from the JD's domain/product context naturally, such as scheduling, workforce management, finance, compliance, field operations, dashboards, or mining contractors when they are present.
 - Avoid filler and corporate buzzwords, including "passionate", "excited to contribute", "aligns with my values", "dynamic team", "fast-paced environment", "comfortable with Unix CLI", and "I would welcome the opportunity to discuss".
 - Closing must be one direct sentence with specific value, not a throwaway request for a discussion.
 - If revising a previous cover letter, remove generic openings/closings, preserve accurate strong evidence, and apply the revision instruction.`;
