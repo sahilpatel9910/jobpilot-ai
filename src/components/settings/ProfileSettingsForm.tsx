@@ -84,7 +84,8 @@ export function ProfileSettingsForm({
           placeholder="Example: Keep tone confident and graduate-friendly. Avoid overusing PHP. Mention Australian work rights only when I provide them."
         />
         <p className="text-xs leading-5 text-slate-500">
-          These preferences are passed into cover-letter generation so repeated drafts adapt to your style.
+          These preferences are added on top of the default format: Dear Hiring Manager, professional body, and
+          Thank you / Warm regards sign-off using your resume contact details.
         </p>
       </label>
 

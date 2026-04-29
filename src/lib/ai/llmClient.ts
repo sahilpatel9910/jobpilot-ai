@@ -359,8 +359,10 @@ The strongest areas of fit are ${analysis.strengths.slice(0, 2).join(" ")} I can
 
 I also see clear areas to tailor my resume and discussion points around the role. The missing or weaker keywords identified in the analysis include ${analysis.missingKeywords.slice(0, 4).join(", ") || "role-specific tooling"}, and I would position those honestly through related project evidence rather than overclaiming. ${revisionSentence}
 
-I would be glad to discuss how my full-stack experience, delivery mindset, and ability to learn quickly can support the team.
+I can bring practical full-stack delivery, clear communication, and grounded problem-solving to the team from day one.
 
-Sincerely,
+Thank you,
+
+Warm regards,
 Sahil Patel`;
 }

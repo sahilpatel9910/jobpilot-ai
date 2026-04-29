@@ -12,18 +12,23 @@ type CandidateContact = {
   linkedIn: string;
 };
 
-const dividerColor = "#2E75B6";
+type DocxModule = Awaited<typeof import("docx")>;
 
-export function downloadCoverLetterWord(input: CoverLetterDocumentInput) {
-  const html = buildCoverLetterDocumentHtml(input);
-  const blob = new Blob(["\ufeff", html], {
-    type: "application/msword;charset=utf-8"
-  });
+const dividerColor = "#2E75B6";
+const dividerDocxColor = "2E75B6";
+const arial11 = {
+  font: "Arial",
+  size: 22
+};
+
+export async function downloadCoverLetterWord(input: CoverLetterDocumentInput) {
+  const docx = await import("docx");
+  const blob = await docx.Packer.toBlob(buildCoverLetterDocx(input, docx));
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
 
   link.href = url;
-  link.download = `${toFileName(input.companyName)}-${toFileName(input.jobTitle)}-cover-letter.doc`;
+  link.download = `${toFileName(input.companyName)}-${toFileName(input.jobTitle)}-cover-letter.docx`;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -70,10 +75,14 @@ export function buildCoverLetterDocumentHtml(input: CoverLetterDocumentInput, op
         font-size: 11pt;
         font-weight: 400;
       }
+      .name {
+        font-size: 16pt;
+        font-weight: 700;
+      }
       .divider {
         border: 0;
         border-top: 2px solid ${dividerColor};
-        margin: 10pt 0 14pt;
+        margin: 8pt 0 14pt;
       }
       .date {
         margin-bottom: 12pt;
@@ -110,18 +119,125 @@ export function buildCoverLetterDocumentHtml(input: CoverLetterDocumentInput, op
 
 function buildBodyHtml(inputLetter: string, input: CoverLetterDocumentInput, contact: CandidateContact) {
   const letterWithoutTrailingSignoff = removeTrailingSignoff(inputLetter);
-  const keywords = collectBoldKeywords(input);
+  const keywords = collectHighlightKeywords(input);
   const paragraphs = letterWithoutTrailingSignoff
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean)
     .map((paragraph) => `<p>${boldKeywords(escapeHtml(paragraph).replace(/\n/g, "<br />"), keywords)}</p>`);
 
-  const signoffLines = ["Yours sincerely,", contact.name, contact.email, contact.linkedIn].filter(Boolean);
+  const signoffLines = ["Thank you,", "", "Warm regards,", contact.name, contact.email, contact.linkedIn].filter(
+    (line) => line !== null && line !== undefined
+  );
   const signoffHtml = signoffLines.map((line) => escapeHtml(line)).join("<br />");
 
   return `${paragraphs.join("\n")}
     <div class="signoff">${signoffHtml}</div>`;
+}
+
+function buildCoverLetterDocx(input: CoverLetterDocumentInput, docx: DocxModule) {
+  const { BorderStyle, Document, Paragraph, convertInchesToTwip } = docx;
+  const contact = extractCandidateContact(input.resumeText);
+  const contactLine = [contact.email, contact.linkedIn].filter(Boolean).join(" | ");
+  const paragraphs = buildDocxBodyParagraphs(removeTrailingSignoff(input.coverLetter), collectHighlightKeywords(input), docx);
+  const date = new Intl.DateTimeFormat("en-AU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  }).format(new Date());
+
+  return new Document({
+    title: `${input.jobTitle} cover letter`,
+    creator: "JobPilot AI",
+    styles: {
+      default: {
+        document: {
+          run: arial11,
+          paragraph: {
+            spacing: { after: 0 }
+          }
+        }
+      }
+    },
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: {
+              top: convertInchesToTwip(1),
+              right: convertInchesToTwip(1),
+              bottom: convertInchesToTwip(1),
+              left: convertInchesToTwip(1)
+            }
+          }
+        },
+        children: [
+          textParagraph(contact.name, { bold: true, size: 32, docx }),
+          ...(contactLine ? [textParagraph(contactLine, { docx })] : []),
+          new Paragraph({
+            border: {
+              bottom: {
+                color: dividerDocxColor,
+                space: 1,
+                style: BorderStyle.SINGLE,
+                size: 12
+              }
+            },
+            spacing: { before: 120, after: 280 }
+          }),
+          textParagraph(date, { after: 240, docx }),
+          textParagraph(`Re: Application for ${input.jobTitle}`, { bold: true, after: 260, docx }),
+          ...paragraphs,
+          textParagraph("Thank you,", { before: 180, docx }),
+          textParagraph("", { after: 80, docx }),
+          textParagraph("Warm regards,", { docx }),
+          textParagraph(contact.name, { docx }),
+          ...(contact.email ? [textParagraph(contact.email, { docx })] : []),
+          ...(contact.linkedIn ? [textParagraph(contact.linkedIn, { docx })] : [])
+        ]
+      }
+    ]
+  });
+}
+
+function buildDocxBodyParagraphs(letter: string, keywords: string[], docx: DocxModule) {
+  const { Paragraph } = docx;
+
+  return letter
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map(
+      (paragraph) =>
+        new Paragraph({
+          children: splitTextRuns(paragraph.replace(/\s*\n\s*/g, " "), keywords, docx),
+          spacing: { after: 220 },
+          run: arial11
+        })
+    );
+}
+
+function textParagraph(
+  text: string,
+  options: { docx: DocxModule; bold?: boolean; size?: number; before?: number; after?: number }
+) {
+  const { Paragraph, TextRun } = options.docx;
+
+  return new Paragraph({
+    children: [
+      new TextRun({
+        text,
+        bold: options?.bold,
+        size: options?.size || arial11.size,
+        font: arial11.font,
+      })
+    ],
+    spacing: {
+      before: options?.before || 0,
+      after: options?.after || 0
+    },
+    run: arial11
+  });
 }
 
 function extractCandidateContact(resumeText: string): CandidateContact {
@@ -147,18 +263,11 @@ function extractCandidateContact(resumeText: string): CandidateContact {
   };
 }
 
-function collectBoldKeywords(input: CoverLetterDocumentInput) {
-  const sourceKeywords = [
-    input.companyName,
-    input.jobTitle,
-    ...input.jobTitle.split(/\s+/),
-    ...(input.keywords || [])
-  ];
+function collectHighlightKeywords(input: CoverLetterDocumentInput) {
+  const sourceKeywords = input.keywords || [];
 
   const seen = new Set<string>();
-  return sourceKeywords
-    .map((keyword) => keyword.trim())
-    .filter((keyword) => keyword.length >= 4)
+  return sourceKeywords.flatMap(toHighlightTerms)
     .filter((keyword) => {
       const key = keyword.toLowerCase();
       if (seen.has(key)) return false;
@@ -166,7 +275,7 @@ function collectBoldKeywords(input: CoverLetterDocumentInput) {
       return true;
     })
     .sort((a, b) => b.length - a.length)
-    .slice(0, 18);
+    .slice(0, 14);
 }
 
 function boldKeywords(html: string, keywords: string[]) {
@@ -180,11 +289,114 @@ function boldKeywords(html: string, keywords: string[]) {
   return output;
 }
 
+function splitTextRuns(text: string, keywords: string[], docx: DocxModule) {
+  const { TextRun } = docx;
+
+  if (!keywords.length) return [new TextRun({ text, ...arial11 })];
+
+  const pattern = new RegExp(`\\b(${keywords.map(escapeRegExp).join("|")})\\b`, "gi");
+  const runs: InstanceType<typeof TextRun>[] = [];
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(pattern)) {
+    const index = match.index ?? 0;
+    if (index > lastIndex) {
+      runs.push(new TextRun({ text: text.slice(lastIndex, index), ...arial11 }));
+    }
+    runs.push(new TextRun({ text: match[0], bold: true, ...arial11 }));
+    lastIndex = index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    runs.push(new TextRun({ text: text.slice(lastIndex), ...arial11 }));
+  }
+
+  return runs.length ? runs : [new TextRun({ text, ...arial11 })];
+}
+
+function toHighlightTerms(keyword: string) {
+  const cleaned = keyword
+    .replace(/\b(experience|proficiency|awareness|delivery|skills?|requirements?)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const terms = new Set<string>();
+
+  if (isUsefulHighlight(cleaned)) {
+    terms.add(cleaned);
+  }
+
+  for (const token of cleaned.split(/[\s,/|()]+/)) {
+    const normalized = token.trim();
+    if (isUsefulHighlight(normalized) && isLikelySpecificSkill(normalized)) {
+      terms.add(normalized);
+    }
+  }
+
+  return Array.from(terms);
+}
+
+function isUsefulHighlight(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (normalized.length < 3 || normalized.length > 42) return false;
+  if (genericHighlightWords.has(normalized)) return false;
+  return true;
+}
+
+function isLikelySpecificSkill(value: string) {
+  return /[A-Z0-9.#/+]/.test(value) || specificSkillWords.has(value.toLowerCase());
+}
+
+const genericHighlightWords = new Set([
+  "full",
+  "stack",
+  "engineer",
+  "developer",
+  "software",
+  "frontend",
+  "backend",
+  "framework",
+  "development",
+  "application",
+  "applications",
+  "production",
+  "customer-facing",
+  "maintainable",
+  "code"
+]);
+
+const specificSkillWords = new Set([
+  "accessibility",
+  "automation",
+  "performance",
+  "testing",
+  "maintainability",
+  "react",
+  "next.js",
+  "typescript",
+  "javascript",
+  "node.js",
+  "postgresql",
+  "mongodb",
+  "sql",
+  "api",
+  "apis",
+  "aws",
+  "vercel",
+  "prisma",
+  "docker",
+  "ci/cd",
+  "rbac",
+  "llm",
+  "ai",
+  "websocket",
+  "serverless"
+]);
+
 function removeTrailingSignoff(letter: string) {
   return letter
     .trim()
     .replace(
-      /\n{1,3}(?:kind regards|regards|sincerely|yours sincerely|yours faithfully),?\s*\n(?:[^\n]+(?:\n(?:[^\n]+)){0,3})?\s*$/i,
+      /\n{1,3}(?:thank you,?\s*\n+)?(?:warm regards|kind regards|regards|sincerely|yours sincerely|yours faithfully),?\s*\n(?:[^\n]+(?:\n(?:[^\n]+)){0,4})?\s*$/i,
       ""
     )
     .trim();
