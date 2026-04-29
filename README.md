@@ -25,24 +25,10 @@ JobPilot uses a browse-first auth flow:
 
 ## Environment variables
 
-Create `.env.local` for local development:
+Create `.env.local` for local development. Start from `.env.example`:
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-
-# Optional LLM providers. Server-side only.
-# Use LLM_PROVIDER=auto, anthropic, openai, groq, or ollama.
-LLM_PROVIDER=auto
-ANTHROPIC_API_KEY=
-ANTHROPIC_MODEL=claude-sonnet-4-20250514
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-4o-mini
-GROQ_API_KEY=
-GROQ_MODEL=llama-3.1-70b-versatile
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.1
+cp .env.example .env.local
 ```
 
 If no LLM key/base URL is configured, `POST /api/analyse-job` returns deterministic mock analysis. In `auto` mode, configured providers are tried in this order: Anthropic, OpenAI, Groq, Ollama.
@@ -84,3 +70,15 @@ npm run build
 ```
 
 The validation runner checks accepted real-world job descriptions across industries, swapped resume/JD fields, prompt injection, random text, HTML/script cleanup, long input, and short low-quality input.
+
+## Production readiness
+
+After deploying `main` to Vercel:
+
+1. Add the environment variables from `.env.example` in Vercel Project Settings.
+2. Run the latest `supabase/schema.sql` in Supabase SQL Editor.
+3. Open `/api/readiness` on the deployed URL.
+4. Confirm all required checks pass.
+5. Create a test account, run one analysis, generate a cover letter, then sign in as a second user and confirm the dashboard is empty.
+
+`/api/readiness` is safe to expose. It reports only configuration status, AI mode, and table reachability. It never returns API keys, service role keys, prompts, resumes, job descriptions, or user data.

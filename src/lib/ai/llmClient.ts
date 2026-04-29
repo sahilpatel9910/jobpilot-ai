@@ -23,6 +23,22 @@ export function hasLlmConfig() {
   return getConfiguredProviders().length > 0;
 }
 
+export function getLlmRuntimeStatus() {
+  const configuredProviders = getConfiguredProviders();
+  const requestedProvider = normalizeProvider(process.env.LLM_PROVIDER);
+  const requestedProviderConfigured =
+    requestedProvider === "auto" || (requestedProvider ? configuredProviders.includes(requestedProvider) : false);
+
+  return {
+    hasLlmConfig: configuredProviders.length > 0,
+    mode: configuredProviders.length > 0 ? "llm-capable" : "mock",
+    configuredProviders,
+    requestedProvider: requestedProvider || "invalid",
+    requestedProviderConfigured,
+    providerOrder: PROVIDER_ORDER
+  };
+}
+
 export async function generateAnalysisWithLlm(input: JobIntakeInput): Promise<LlmResult> {
   if (!hasLlmConfig()) {
     return { analysis: createMockAnalysis(input), mode: "mock", provider: "mock" };
