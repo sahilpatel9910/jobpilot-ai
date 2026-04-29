@@ -4,7 +4,10 @@ import { formatApplicationDateTime } from "@/lib/format/date";
 export function StatusHistory({ history }: { history: ApplicationStatusHistoryRecord[] }) {
   return (
     <section className="rounded-lg border border-slateLine bg-white p-5 shadow-soft">
-      <h2 className="text-base font-semibold">Status history</h2>
+      <h2 className="text-base font-semibold">Activity timeline</h2>
+      <p className="mt-1 text-sm leading-6 text-slate-500">
+        Status changes and one-time timeline notes. These are separate from private job notes.
+      </p>
       <div className="mt-4 space-y-3">
         {history.length > 0 ? (
           history.map((item) => (
@@ -18,7 +21,7 @@ export function StatusHistory({ history }: { history: ApplicationStatusHistoryRe
           ))
         ) : (
           <p className="rounded-lg border border-dashed border-slateLine p-4 text-sm text-slate-500">
-            Status changes will appear here.
+            Status changes and timeline notes will appear here.
           </p>
         )}
       </div>

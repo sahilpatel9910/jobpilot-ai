@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Archive, Search } from "lucide-react";
+import { Archive, FileText, Search } from "lucide-react";
 import { APPLICATION_STATUSES, type ApplicationRecord } from "@/lib/db/types";
 import { ApplicationStatusBadge } from "@/components/job/ApplicationStatusBadge";
 import { formatApplicationDate } from "@/lib/format/date";
@@ -17,6 +17,7 @@ export function ApplicationBoard({ applications }: { applications: ApplicationRe
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [showArchived, setShowArchived] = useState(false);
+  const [notesOnly, setNotesOnly] = useState(false);
 
   const filteredApplications = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -24,9 +25,10 @@ export function ApplicationBoard({ applications }: { applications: ApplicationRe
     return applications
       .filter((application) => showArchived || application.status !== "Archived")
       .filter((application) => statusFilter === "All" || application.status === statusFilter)
+      .filter((application) => !notesOnly || Boolean(application.notes?.trim()))
       .filter((application) => {
         if (!normalizedQuery) return true;
-        return [application.company_name, application.job_title, application.job_url || "", application.summary || ""]
+        return [application.company_name, application.job_title, application.job_url || "", application.summary || "", application.notes || ""]
           .join(" ")
           .toLowerCase()
           .includes(normalizedQuery);
@@ -37,7 +39,7 @@ export function ApplicationBoard({ applications }: { applications: ApplicationRe
         if (sortMode === "match-low") return (left.match_score ?? 101) - (right.match_score ?? 101);
         return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
       });
-  }, [applications, query, showArchived, sortMode, statusFilter]);
+  }, [applications, notesOnly, query, showArchived, sortMode, statusFilter]);
 
   const visibleStatuses = showArchived ? APPLICATION_STATUSES : activeStatuses;
   const visibleCount = filteredApplications.length;
@@ -46,7 +48,7 @@ export function ApplicationBoard({ applications }: { applications: ApplicationRe
   return (
     <section className="space-y-4">
       <div className="rounded-lg border border-slateLine bg-white p-4 shadow-soft">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto]">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto_auto]">
           <label className="relative block">
             <span className="sr-only">Search applications</span>
             <Search
@@ -75,6 +77,19 @@ export function ApplicationBoard({ applications }: { applications: ApplicationRe
               <option value="match-low">Lowest match</option>
             </select>
           </label>
+
+          <button
+            type="button"
+            onClick={() => setNotesOnly((current) => !current)}
+            className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold transition ${
+              notesOnly
+                ? "border-pilot-200 bg-pilot-50 text-pilot-800"
+                : "border-slateLine bg-white text-slate-600 hover:bg-surface"
+            }`}
+          >
+            <FileText size={16} aria-hidden="true" />
+            {notesOnly ? "Notes only" : "Has notes"}
+          </button>
 
           <button
             type="button"
@@ -147,6 +162,15 @@ export function ApplicationBoard({ applications }: { applications: ApplicationRe
                       <p className="mt-3 text-xs font-medium text-slate-500">
                         Match {application.match_score ?? 0}% · {formatApplicationDate(application.created_at)}
                       </p>
+                      {application.notes?.trim() ? (
+                        <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2">
+                          <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
+                            <FileText size={13} aria-hidden="true" />
+                            Job notes
+                          </p>
+                          <p className="mt-1 line-clamp-2 text-xs leading-5 text-amber-900">{application.notes.trim()}</p>
+                        </div>
+                      ) : null}
                     </Link>
                   ))
                 ) : (

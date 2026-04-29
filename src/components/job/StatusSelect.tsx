@@ -54,15 +54,18 @@ export function StatusSelect({ applicationId, status }: { applicationId: string;
         </select>
       </label>
       <label className="mt-3 block text-sm font-semibold">
-        Status note
+        Timeline note
         <textarea
           value={note}
           onChange={(event) => setNote(event.target.value)}
           disabled={isSaving}
           maxLength={500}
-        placeholder="Example: Applied through company website, recruiter replied, interview booked for Friday."
+          placeholder="Optional: why you changed the status, such as applied through company site or interview booked for Friday."
           className="mt-2 min-h-20 w-full resize-y rounded-lg border border-slateLine bg-white px-3 py-2 text-sm leading-6 outline-none focus:border-pilot-500 focus:ring-2 focus:ring-pilot-100"
         />
+        <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">
+          This is saved in the activity timeline only. Use Private job notes for ongoing notes that appear on the tracker.
+        </span>
       </label>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-slate-500">{note.length}/500</p>

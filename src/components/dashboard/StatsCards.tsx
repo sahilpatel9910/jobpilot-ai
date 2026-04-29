@@ -5,7 +5,7 @@ export function StatsCards({ applications }: { applications: ApplicationRecord[]
   const scoredApplications = activeApplications.filter((application) => typeof application.match_score === "number");
   const analysed = activeApplications.filter((application) => application.status === "Analysed").length;
   const interviews = activeApplications.filter((application) => application.status === "Interview").length;
-  const archived = applications.filter((application) => application.status === "Archived").length;
+  const withNotes = activeApplications.filter((application) => Boolean(application.notes?.trim())).length;
   const averageScore =
     scoredApplications.length === 0
       ? 0
@@ -17,7 +17,7 @@ export function StatsCards({ applications }: { applications: ApplicationRecord[]
     { label: "Active jobs", value: activeApplications.length },
     { label: "Analysed", value: analysed },
     { label: "Interviews", value: interviews },
-    { label: "Archived", value: archived },
+    { label: "With notes", value: withNotes },
     { label: "Avg. match", value: `${averageScore}%` }
   ];
 
