@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Circle, Loader2, RefreshCw, Settings, Sparkles } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Circle, Loader2, RefreshCw, Search, Settings, Sparkles } from "lucide-react";
 import type { CoverLetterStatus } from "@/lib/db/types";
+import type { DecisionRecommendation } from "@/lib/analysis/decisionLayer";
 import { CoverLetterPreview } from "@/components/job/CoverLetterPreview";
 
 type CoverLetterWorkspaceProps = {
@@ -12,6 +13,7 @@ type CoverLetterWorkspaceProps = {
   jobTitle: string;
   resumeText: string;
   requiredSkills: string[];
+  recommendation?: DecisionRecommendation;
   initialCoverLetter: string;
   initialContext: string;
   initialRevisionInstruction: string;
@@ -55,6 +57,7 @@ export function CoverLetterWorkspace({
   jobTitle,
   resumeText,
   requiredSkills,
+  recommendation,
   initialCoverLetter,
   initialContext,
   initialRevisionInstruction,
@@ -74,6 +77,9 @@ export function CoverLetterWorkspace({
 
   const hasCoverLetter = status !== "not_generated" && Boolean(coverLetter);
   const isBusy = Boolean(activeAction);
+  const [allowNotRecommendedGeneration, setAllowNotRecommendedGeneration] = useState(false);
+  const shouldBlockPrimaryGeneration =
+    recommendation?.decision === "Not Recommended" && !hasCoverLetter && !allowNotRecommendedGeneration;
   const statusLabel = status === "regenerated" ? "Regenerated" : status === "generated" ? "Generated" : "Not generated";
   const currentStep = useMemo(
     () => coverLetterSteps[Math.min(currentStepIndex, coverLetterSteps.length - 1)],
@@ -220,7 +226,51 @@ export function CoverLetterWorkspace({
           </div>
         </div>
 
-        {!hasCoverLetter ? (
+        {recommendation?.decision === "Risky" && !hasCoverLetter ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+            <p className="font-semibold">Weak match warning</p>
+            <p className="mt-1">
+              This match is weak. A cover letter may not be useful unless you have relevant experience not shown in your resume.
+            </p>
+          </div>
+        ) : null}
+
+        {shouldBlockPrimaryGeneration ? (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 p-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex gap-3">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-rose-700">
+                  <AlertTriangle size={18} aria-hidden="true" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-semibold text-rose-950">Cover letter not recommended</h3>
+                  <p className="mt-1 text-sm leading-6 text-rose-800">
+                    This role appears outside your resume domain. A cover letter is unlikely to help unless you have
+                    relevant experience that is missing from your resume.
+                  </p>
+                </div>
+              </div>
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                <Link
+                  href="/jobs/new"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-rose-800 ring-1 ring-rose-200 transition hover:bg-rose-100"
+                >
+                  <Search size={16} aria-hidden="true" />
+                  Find better matching jobs
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setAllowNotRecommendedGeneration(true)}
+                  className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
+                >
+                  Generate anyway
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {!hasCoverLetter && !shouldBlockPrimaryGeneration ? (
           <div className="space-y-4">
             <label className="block space-y-2">
               <span className="text-sm font-semibold">Optional context before generation</span>

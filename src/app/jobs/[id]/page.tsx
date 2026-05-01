@@ -10,6 +10,7 @@ import { CoverLetterWorkspace } from "@/components/job/CoverLetterWorkspace";
 import { NextActionPanel } from "@/components/job/NextActionPanel";
 import { StatusHistory } from "@/components/job/StatusHistory";
 import { StatusSelect } from "@/components/job/StatusSelect";
+import { evaluateAnalysisDecision } from "@/lib/analysis/decisionLayer";
 import { getApplication, listAgentRuns, listApplicationStatusHistory } from "@/lib/db/applications";
 import { formatApplicationDateTime } from "@/lib/format/date";
 import { createSupabaseServerClient, getCurrentUser, hasSupabaseServerConfig } from "@/lib/supabase/server";
@@ -24,6 +25,25 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
   if (!application) {
     notFound();
   }
+
+  const analysis = {
+    summary: application.summary || "",
+    requiredSkills: application.required_skills,
+    matchScore: application.match_score || 0,
+    missingKeywords: application.missing_keywords,
+    strengths: application.strengths,
+    gaps: application.gaps,
+    suggestedBullets: application.suggested_bullets,
+    coverLetter: ""
+  };
+  const input = {
+    companyName: application.company_name,
+    jobTitle: application.job_title,
+    jobUrl: application.job_url || "",
+    jobDescription: application.job_description,
+    resumeText: application.resume_text
+  };
+  const decisionResult = evaluateAnalysisDecision(input, analysis);
 
   return (
     <div className="space-y-6">
@@ -63,16 +83,9 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
 
       <div id="analysis">
         <AnalysisResult
-          analysis={{
-            summary: application.summary || "",
-            requiredSkills: application.required_skills,
-            matchScore: application.match_score || 0,
-            missingKeywords: application.missing_keywords,
-            strengths: application.strengths,
-            gaps: application.gaps,
-            suggestedBullets: application.suggested_bullets,
-            coverLetter: ""
-          }}
+          analysis={analysis}
+          input={input}
+          decisionResult={decisionResult}
           coverLetterSlot={
             <CoverLetterWorkspace
               applicationId={application.id}
@@ -80,6 +93,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
               jobTitle={application.job_title}
               resumeText={application.resume_text}
               requiredSkills={application.required_skills}
+              recommendation={decisionResult.recommendation}
               initialCoverLetter={application.cover_letter || ""}
               initialContext={application.cover_letter_context || ""}
               initialRevisionInstruction={application.cover_letter_revision_instruction || ""}

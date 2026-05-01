@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test:validation": "tsx -r tsconfig-paths/register src/lib/security/runValidationTests.ts",
+    "test:decision": "tsx -r tsconfig-paths/register src/lib/analysis/runDecisionTests.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
