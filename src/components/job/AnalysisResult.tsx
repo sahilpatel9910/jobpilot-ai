@@ -26,10 +26,25 @@ export function AnalysisResult({
         <section className="rounded-lg border border-rose-200 bg-rose-50 p-5 shadow-soft">
           <h2 className="text-base font-semibold text-rose-950">Domain mismatch warning</h2>
           <p className="mt-2 text-sm leading-6 text-rose-800">
-            This job appears to be in a different domain. Your resume is aligned with{" "}
+            This job appears to be in a different professional domain. Your resume is aligned with{" "}
             <span className="font-semibold">{recommendation.resumeDomain}</span>, while this role is in{" "}
             <span className="font-semibold">{recommendation.jobDomain}</span>.
           </p>
+        </section>
+      ) : null}
+      {recommendation?.criticalRequirementMissing ? (
+        <section className="rounded-lg border border-amber-200 bg-amber-50 p-5 shadow-soft">
+          <h2 className="text-base font-semibold text-amber-950">Critical requirement warning</h2>
+          <p className="mt-2 text-sm leading-6 text-amber-900">
+            This job has critical requirements that are not clearly shown in the resume.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {recommendation.criticalMissingItems.map((item) => (
+              <span key={item} className="rounded-full border border-amber-200 bg-white px-3 py-1 text-xs font-semibold text-amber-900">
+                {item}
+              </span>
+            ))}
+          </div>
         </section>
       ) : null}
 
@@ -136,6 +151,9 @@ function DecisionSummary({ decision }: { decision: NonNullable<AnalysisDecisionR
           </div>
           <div className="rounded-lg bg-white/70 px-3 py-2">
             <span className="font-semibold">Job domain:</span> {decision.jobDomain}
+          </div>
+          <div className="rounded-lg bg-white/70 px-3 py-2">
+            <span className="font-semibold">Domain confidence:</span> {Math.round(decision.domainConfidence * 100)}%
           </div>
         </div>
       </div>

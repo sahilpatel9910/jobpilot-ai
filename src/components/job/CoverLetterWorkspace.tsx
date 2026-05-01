@@ -245,8 +245,9 @@ export function CoverLetterWorkspace({
                 <div>
                   <h3 className="text-sm font-semibold text-rose-950">Cover letter not recommended</h3>
                   <p className="mt-1 text-sm leading-6 text-rose-800">
-                    This role appears outside your resume domain. A cover letter is unlikely to help unless you have
-                    relevant experience that is missing from your resume.
+                    This role appears outside your resume domain or has critical requirements that are not shown in the
+                    resume. A cover letter is unlikely to help unless you have relevant experience that is missing from
+                    your resume.
                   </p>
                 </div>
               </div>
