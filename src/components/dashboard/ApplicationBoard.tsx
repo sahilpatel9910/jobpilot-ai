@@ -139,38 +139,40 @@ export function ApplicationBoard({ applications }: { applications: ApplicationRe
         </p>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid items-start gap-4 xl:grid-cols-3">
         {visibleStatuses.map((status) => {
           const grouped = filteredApplications.filter((application) => application.status === status);
 
           return (
-            <div key={status} className="min-h-52 rounded-lg border border-slateLine bg-white p-4 shadow-soft">
-              <div className="flex items-center justify-between">
+            <div key={status} className="flex h-[36rem] min-h-0 flex-col rounded-lg border border-slateLine bg-white p-4 shadow-soft">
+              <div className="flex shrink-0 items-center justify-between">
                 <ApplicationStatusBadge status={status} />
                 <span className="text-sm font-medium text-slate-500">{grouped.length}</span>
               </div>
-              <div className="mt-4 space-y-3">
+              <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                 {grouped.length > 0 ? (
                   grouped.map((application) => (
                     <Link
                       href={`/jobs/${application.id}`}
                       key={application.id}
-                      className="block rounded-lg border border-slateLine bg-surface p-3 transition hover:border-pilot-500 hover:bg-pilot-50"
+                      className="flex min-h-40 flex-col rounded-lg border border-slateLine bg-surface p-3 transition hover:border-pilot-500 hover:bg-pilot-50"
                     >
-                      <p className="text-sm font-semibold">{application.job_title}</p>
-                      <p className="mt-1 text-sm text-slate-500">{application.company_name}</p>
+                      <p className="line-clamp-2 text-sm font-semibold leading-5">{application.job_title}</p>
+                      <p className="mt-1 line-clamp-1 text-sm text-slate-500">{application.company_name}</p>
                       <p className="mt-3 text-xs font-medium text-slate-500">
                         Match {application.match_score ?? 0}% · {formatApplicationDate(application.created_at)}
                       </p>
                       {application.notes?.trim() ? (
-                        <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2">
+                        <div className="mt-auto rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2">
                           <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
                             <FileText size={13} aria-hidden="true" />
                             Job notes
                           </p>
                           <p className="mt-1 line-clamp-2 text-xs leading-5 text-amber-900">{application.notes.trim()}</p>
                         </div>
-                      ) : null}
+                      ) : (
+                        <span className="mt-auto text-xs font-medium text-slate-400">No notes added</span>
+                      )}
                     </Link>
                   ))
                 ) : (
