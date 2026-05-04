@@ -514,10 +514,18 @@ function buildDecisionReason({
 function buildAtsKeywordIntelligence(input: JobIntakeInput, analysis: JobAnalysis): AtsKeywordIntelligence {
   const resumeText = normalize(input.resumeText);
   const jobText = normalize(`${input.jobTitle} ${input.jobDescription}`);
-  const requiredTerms = uniqueTerms([...analysis.requiredSkills, ...analysis.missingKeywords]);
-  const matchedKeywords = requiredTerms.filter((term) => termAppears(resumeText, term)).slice(0, 12);
-  const missingKeywords = uniqueTerms(analysis.missingKeywords.length ? analysis.missingKeywords : requiredTerms)
-    .filter((term) => !termAppears(resumeText, term))
+  const requiredTerms = extractAtsTerms([...analysis.requiredSkills, ...analysis.missingKeywords], jobText);
+  const missingSourceTerms = analysis.missingKeywords.length ? analysis.missingKeywords : requiredTerms;
+  const missingCandidateTerms = extractAtsTerms(missingSourceTerms, jobText);
+  const matchedKeywords = requiredTerms
+    .filter((term) => termAppearsWithAliases(resumeText, term))
+    .map(toDisplayKeyword)
+    .filter(unique)
+    .slice(0, 12);
+  const missingKeywords = missingCandidateTerms
+    .filter((term) => !termAppearsWithAliases(resumeText, term))
+    .map(toDisplayKeyword)
+    .filter(unique)
     .slice(0, 12);
   const weakTransferableKeywords = transferableKeywordPairs
     .filter(([resumeSignal]) => resumeText.includes(resumeSignal) && jobText.includes(resumeSignal))
@@ -641,14 +649,183 @@ function termAppears(text: string, term: string) {
   return text.includes(normalizedTerm);
 }
 
+const atsAliasGroups = [
+  ["react", "react.js", "reactjs"],
+  ["next.js", "nextjs"],
+  ["node.js", "nodejs"],
+  ["tailwind css", "tailwind", "tailwindcss"],
+  ["typescript", "type script"],
+  ["javascript", "java script"],
+  ["postgresql", "postgres", "postgre sql"],
+  ["digitalocean", "digital ocean"],
+  ["github actions", "git hub actions"],
+  ["ci/cd", "cicd", "ci cd", "continuous integration", "continuous deployment"],
+  ["rls policies", "rls", "rls policy", "row level security"],
+  ["supabase edge functions", "edge functions", "edge function"],
+  ["docker", "containerized", "containerised", "containerization", "containerisation"],
+  ["waf", "web application firewall"],
+  ["ddos protection", "ddos", "d dos"]
+] as const;
+
+const atsAliasToCanonical = new Map<string, string>(
+  atsAliasGroups.flatMap(([canonical, ...aliases]) => [canonical, ...aliases].map((alias) => [normalize(alias), normalize(canonical)]))
+);
+
+const atsDescriptorWords = [
+  "advanced",
+  "architecture",
+  "architectural",
+  "background",
+  "containerization",
+  "containerisation",
+  "development",
+  "design",
+  "engineering",
+  "expertise",
+  "experience",
+  "familiarity",
+  "hands-on",
+  "implementation",
+  "knowledge",
+  "management",
+  "orchestration",
+  "proficiency",
+  "proficient",
+  "scalable",
+  "skills",
+  "strong",
+  "tooling",
+  "using",
+  "with"
+];
+
+const atsDescriptorPattern = new RegExp(`\\b(?:${atsDescriptorWords.map(escapeRegExp).join("|")})\\b`, "g");
+
+function extractAtsTerms(values: string[], normalizedJobText: string) {
+  const terms: string[] = [];
+
+  for (const value of values) {
+    terms.push(...extractTermsFromPhrase(value));
+  }
+
+  return uniqueTerms(terms).filter((term) => termAppearsWithAliases(normalizedJobText, term));
+}
+
+function extractTermsFromPhrase(value: string) {
+  return splitAtsPhrase(value).flatMap(extractTermsFromPhrasePiece);
+}
+
+function extractTermsFromPhrasePiece(value: string) {
+  const cleaned = cleanAtsTerm(value);
+  if (!cleaned) return [];
+
+  const aliasHits = canonicalAliasHits(cleaned);
+  if (aliasHits.length > 0) return aliasHits;
+
+  return deriveGenericAtsTerms(cleaned);
+}
+
+function splitAtsPhrase(value: string) {
+  const parentheticalMatches = [...value.matchAll(/\(([^)]+)\)/g)].map((match) => match[1] || "");
+  const withoutParentheticals = value.replace(/\([^)]*\)/g, " ");
+  const pieces = [withoutParentheticals, ...parentheticalMatches]
+    .flatMap((piece) => piece.split(/\s+(?:and|or)\s+|[,;|]+/i))
+    .flatMap((piece) => splitSlashSeparatedSkills(piece))
+    .map((piece) => piece.trim())
+    .filter(Boolean);
+
+  return pieces.length ? pieces : [value];
+}
+
+function splitSlashSeparatedSkills(value: string) {
+  if (!value.includes("/")) return [value];
+
+  const protectedValue = value
+    .replace(/\bci\s*\/\s*cd\b/gi, "ci cd")
+    .replace(/\bclient\s*\/\s*server\b/gi, "client server")
+    .replace(/\bui\s*\/\s*ux\b/gi, "ui ux");
+
+  return protectedValue.split(/\s*\/\s*/);
+}
+
+function cleanAtsTerm(value: string) {
+  const cleaned = normalize(value)
+    .replace(/\binfrastructure-as-code\b/g, " ")
+    .replace(/\b(?:caching|automation)\b/g, " ")
+    .replace(/\bapis?\b$/g, " ")
+    .replace(atsDescriptorPattern, " ")
+    .replace(/\b(?:in|for|of|the|a|an)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (cleaned.length < 2) return "";
+  return cleaned;
+}
+
+function canonicalAliasHits(term: string) {
+  return [...atsAliasToCanonical.entries()]
+    .filter(([alias]) => termAppears(term, alias))
+    .map(([, canonical]) => canonical)
+    .filter(unique);
+}
+
+function deriveGenericAtsTerms(term: string) {
+  const compactTerm = term.replace(/\bapis?\b/g, " ").replace(/\s+/g, " ").trim();
+  if (!compactTerm) return [];
+
+  const words = compactTerm.split(/\s+/);
+  if (words.length === 1) return [compactTerm];
+
+  const firstWord = words[0] || "";
+  if (isLikelyTechnicalToken(firstWord)) return [firstWord];
+
+  return [compactTerm];
+}
+
+function isLikelyTechnicalToken(value: string) {
+  return /^[a-z0-9][a-z0-9.+#-]{2,}$/i.test(value) && !["app", "user", "data", "cloud", "full", "stack", "web"].includes(value);
+}
+
+function canonicalizeAtsTerm(term: string) {
+  const directCanonical = atsAliasToCanonical.get(term);
+  if (directCanonical) return directCanonical;
+
+  return canonicalAliasHits(term)[0] || term;
+}
+
+function termAppearsWithAliases(text: string, term: string) {
+  const canonicalTerm = canonicalizeAtsTerm(normalize(term));
+  const aliases = [...atsAliasToCanonical.entries()]
+    .filter(([, canonical]) => canonical === canonicalTerm)
+    .map(([alias]) => alias);
+  const candidates = aliases.length ? aliases : [canonicalTerm];
+
+  return candidates.some((candidate) => termAppears(text, candidate));
+}
+
 function toDisplayKeyword(keyword: string) {
   const displayMap: Record<string, string> = {
     "next.js": "Next.js",
     "node.js": "Node.js",
+    react: "React",
+    vite: "Vite",
+    "tailwind css": "Tailwind CSS",
     typescript: "TypeScript",
     javascript: "JavaScript",
     postgresql: "PostgreSQL",
     supabase: "Supabase",
+    "supabase auth": "Supabase Auth",
+    "supabase storage": "Supabase Storage",
+    "supabase edge functions": "Supabase Edge Functions",
+    deno: "Deno",
+    "rls policies": "RLS policies",
+    "sql functions": "SQL functions",
+    digitalocean: "DigitalOcean",
+    "app platform": "App Platform",
+    droplets: "Droplets",
+    "managed databases": "Managed Databases",
+    docker: "Docker",
+    "github actions": "GitHub Actions",
     prisma: "Prisma",
     claude: "Claude API",
     openai: "OpenAI",
@@ -656,6 +833,17 @@ function toDisplayKeyword(keyword: string) {
     rag: "RAG pipelines",
     langgraph: "LangGraph",
     "ci/cd": "CI/CD",
+    "dns configuration": "DNS configuration",
+    "ssl setup": "SSL setup",
+    "cors configuration": "CORS configuration",
+    stripe: "Stripe",
+    sendgrid: "SendGrid",
+    lovable: "Lovable",
+    cursor: "Cursor",
+    v0: "v0",
+    cloudflare: "Cloudflare",
+    waf: "WAF",
+    "ddos protection": "DDoS protection",
     ahpra: "AHPRA registration",
     "registered nurse": "Registered Nurse",
     "registered architect": "registered architect",
@@ -669,7 +857,30 @@ function toDisplayKeyword(keyword: string) {
     "power bi": "Power BI"
   };
 
-  return displayMap[keyword.toLowerCase()] || keyword;
+  return displayMap[keyword.toLowerCase()] || formatGenericKeyword(keyword);
+}
+
+function formatGenericKeyword(keyword: string) {
+  const acronymMap: Record<string, string> = {
+    api: "API",
+    apis: "APIs",
+    css: "CSS",
+    dns: "DNS",
+    html: "HTML",
+    http: "HTTP",
+    https: "HTTPS",
+    sql: "SQL",
+    ssl: "SSL",
+    tls: "TLS",
+    ui: "UI",
+    url: "URL",
+    ux: "UX"
+  };
+
+  return keyword
+    .split(" ")
+    .map((word) => acronymMap[word] || `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join(" ");
 }
 
 function normalize(value: string) {
